@@ -25,8 +25,7 @@ DEEP = "#333333"
 
 plt.rcParams.update({
     "figure.dpi": 150, "savefig.dpi": 150,
-    "font.family": "serif", "axes.spines.top": False,
-    "axes.spines.right": False,
+    "axes.spines.top": False, "axes.spines.right": False,
 })
 
 daily = pl.read_parquet(BASE / "data" / "daily_report.parquet").sort("date")
@@ -195,26 +194,30 @@ neros = [sum(1 for r in d if r["section"] == s and r["is_nero"]) for s in SECTIO
 rate = [100 * n / t for n, t in zip(neros, totals)]
 plt.bar(SECTIONS, rate, color=SECC, edgecolor="white")
 plt.ylabel("% of hiking days under 20 mi")
-plt.title("Nero rate by section (desert excluded by definition)", fontsize=13, weight="bold")
+plt.title("Neros (<20 mi) by section", fontsize=13, weight="bold")
 for s, v, n in zip(SECTIONS, rate, neros):
     plt.text(s, v + 0.4, f"{n}", ha="center", fontsize=10)
 save("25_neros.png")
 
-# 26 — morning vs afternoon slopegraph per section ---------------------------------------
+# 26 — morning vs afternoon miles per section, grouped bars --------------------------------
 hh = pl.read_parquet(BASE / "data" / "hourly.parquet")
 plt.figure(figsize=(10, 5.5))
-for s, col in zip(SECTIONS, SECC):
+am_pm, xs = [], np.arange(5)
+for s in SECTIONS:
     dd = [r["date"] for r in d if r["section"] == s and r["is_full"]]
     sub = hh.filter(pl.col("date").is_in(dd))
     am = sub.filter(pl.col("hour_local") < 12).group_by("date").agg(
         pl.col("mi").sum().alias("m"))["m"].median()
     pm = sub.filter(pl.col("hour_local") >= 12).group_by("date").agg(
         pl.col("mi").sum().alias("m"))["m"].median()
-    plt.plot([0, 1], [am, pm], label=f"{s} ({am:.1f}→{pm:.1f})", color=col,
-             lw=3, marker="o", ms=8)
-plt.xticks([0, 1], ["morning (before noon)", "afternoon"])
+    am_pm.append((am, pm))
+plt.bar(xs - 0.2, [a for a, _ in am_pm], width=0.4, label="morning (before noon)",
+        color=SECC)
+plt.bar(xs + 0.2, [p for _, p in am_pm], width=0.4, label="afternoon",
+        color=SECC, alpha=0.45, edgecolor=DEEP)
+plt.xticks(xs, SECTIONS)
 plt.ylabel("median miles in that half (full days)")
-plt.title("Morning people? Afternoon people? By section", fontsize=13, weight="bold")
+plt.title("Morning vs afternoon miles by section", fontsize=13, weight="bold")
 plt.legend(frameon=False)
 save("26_hourly_sections.png")
 

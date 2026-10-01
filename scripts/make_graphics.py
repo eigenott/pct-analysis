@@ -29,8 +29,7 @@ BOUNDS = [0, 702, 1092, 1694, 2146, 2660]
 
 plt.rcParams.update({
     "figure.dpi": 150, "savefig.dpi": 150,
-    "font.family": "serif", "axes.spines.top": False,
-    "axes.spines.right": False,
+    "axes.spines.top": False, "axes.spines.right": False,
 })
 
 daily = pl.read_parquet(BASE / "data" / "daily_report.parquet").sort("date")
