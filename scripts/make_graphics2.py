@@ -309,4 +309,28 @@ fig.suptitle("Median miles hiked per hour of day by section (full days)",
              fontsize=13, weight="bold")
 save("56_hourly_facets.png")
 
+# 57 — share of daily miles per hour, one mini plot per section -------------------------------
+hh57 = pl.read_parquet(BASE / "data" / "hourly.parquet")
+day_tot = (hh57.group_by("date").agg(pl.col("mi").sum().alias("tot")))
+share = (hh57.join(day_tot, on="date").with_columns(
+    (pl.col("mi") / pl.col("tot") * 100).alias("pct"))
+    .join(pl.read_parquet(BASE / "data" / "daily_report.parquet").select(["date", "is_full"]),
+          on="date", how="left")
+    .filter(pl.col("is_full") & pl.col("hour_local").is_between(4, 23)))
+fig, axes = plt.subplots(1, 5, figsize=(14, 3.8), sharey=True)
+for ax, s, col in zip(axes, SECTIONS, SECC):
+    dd = [r["date"] for r in d if r["section"] == s and r["is_full"]]
+    cur = (share.filter(pl.col("date").is_in(dd))
+           .group_by("hour_local").agg(pl.col("pct").median().alias("p"))
+           .sort("hour_local"))
+    ax.bar(cur["hour_local"], cur["p"], color=col, edgecolor="white")
+    ax.set_title(s, fontsize=11, weight="bold")
+    ax.set_xlim(3.5, 21.5)
+    ax.set_xticks([4, 9, 14, 19])
+    ax.tick_params(labelsize=8)
+axes[0].set_ylabel("median % of that day's miles")
+fig.suptitle("When does each day's mileage happen, by section (full days)",
+             fontsize=13, weight="bold")
+save("57_hourly_share.png")
+
 print("done → graphics/", flush=True)

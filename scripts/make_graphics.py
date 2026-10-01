@@ -130,7 +130,11 @@ seg = pl.read_parquet(BASE / "data" / "segments.parquet").filter(
 gg = seg.with_columns(((pl.col("grade") * 50).round() * 2).alias("gp")).group_by("gp").agg(
     pl.col("mph").median().alias("m"), pl.len().alias("n")).filter(
     pl.col("n") > 50).sort("gp")
+overall = seg["mph"].median()
 plt.figure(figsize=(9, 5))
+plt.axhline(overall, color="black", alpha=0.4, ls="--")
+plt.text(gg["gp"].max(), overall + 0.05, f"overall median {overall:.2f} mph",
+         ha="right", fontsize=10)
 plt.plot(gg["gp"], gg["m"], color=DEEP, lw=3, marker="o", ms=5,
          markerfacecolor=BRAND, markeredgecolor=DEEP)
 plt.axvline(0, color="black", alpha=0.3, ls="--")
@@ -163,9 +167,12 @@ save("06_sleep_vs_miles.png")
 st = np.array([(int(r["start_local"][:2]) * 60 + int(r["start_local"][3:])) // 60 for r in d])
 ym = np.array([r["net_mi"] for r in d])
 hs = sorted(set(st))
+means = [ym[st == h].mean() for h in hs]
+ns = [int((st == h).sum()) for h in hs]
 plt.figure(figsize=(10, 5))
-plt.bar([f"{h}:00" for h in hs], [ym[st == h].mean() for h in hs],
-        color=BRAND, edgecolor="white")
+plt.bar([f"{h}:00" for h in hs], means, color=BRAND, edgecolor="white")
+for x, m, n in zip([f"{h}:00" for h in hs], means, ns):
+    plt.text(x, m + 0.3, f"n={n}", ha="center", fontsize=9)
 plt.xlabel("start hour (PT)")
 plt.ylabel("mean trail miles")
 plt.title("Start hour vs daily miles", fontsize=13, weight="bold")

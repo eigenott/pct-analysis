@@ -123,8 +123,7 @@ for p, s in zip(bp["boxes"], maj):
     p.set_facecolor(SECC[SECTIONS.index(s)])
     p.set_alpha(0.85)
 plt.ylabel("daily trail miles")
-plt.title("Week-by-week distributions: fitness arriving around week 8?",
-          fontsize=13, weight="bold")
+plt.title("Mileage by week", fontsize=13, weight="bold")
 save("37_weeks.png")
 
 # 38 — total climb vs descent by section ---------------------------------------------------------------
@@ -182,7 +181,7 @@ groups = [("normal day", [r for r in d if r["date"] not in after_zero | after_ne
           ("after nero", [r for r in d if r["date"] in after_nero])]
 ax1.bar([g[0] + f"\n(n={len(g[1])})" for g in groups],
         [np.mean([r["net_mi"] for r in g[1]]) for g in groups],
-        color=["#666666", "#E69F00", "#7A7AD6"], width=0.6)
+        color=["#3D3D8F", "#999999", "#CCCCCC"], width=0.6)
 ax1.set_ylabel("mean trail miles")
 ax1.set_title("Do rest days pay off?", fontsize=12, weight="bold")
 x = np.arange(5)
@@ -191,7 +190,7 @@ norm = [np.mean([r["net_mi"] for r in d if r["section"] == s
                  and r["date"] not in after_zero | after_nero]) for s in SECTIONS]
 rest = [np.mean([r["net_mi"] for r in d if r["section"] == s
                  and r["date"] in after_zero | after_nero]) for s in SECTIONS]
-ax2.bar(x - w / 2, norm, width=w, label="normal", color="#666666")
+ax2.bar(x - w / 2, norm, width=w, label="normal", color="#3D3D8F")
 ax2.bar(x + w / 2, [0 if np.isnan(v) else v for v in rest], width=w,
         label="after zero/nero", color=SECC)
 ax2.set_xticks(x, SECTIONS)

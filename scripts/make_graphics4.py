@@ -88,7 +88,7 @@ plt.xlabel("start time (PT)")
 plt.gca().xaxis.set_major_formatter(
     matplotlib.ticker.FuncFormatter(lambda v, _: f"{int(v)//60:02d}:{int(v)%60:02d}"))
 plt.ylabel("days")
-plt.title("What time does a thru-hiker start?", fontsize=13, weight="bold")
+plt.title("Morning start time", fontsize=13, weight="bold")
 plt.legend(frameon=False)
 save("44_starts_hist.png")
 
