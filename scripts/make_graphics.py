@@ -158,7 +158,7 @@ save("07_early_bird.png")
 mm = [r["net_mi"] for r in d]
 plt.figure(figsize=(9, 5))
 plt.hist(mm, bins=20, color=BRAND, edgecolor="white")
-plt.axvline(25, color=RED, lw=2.5, ls="--", label="25 mi nero line")
+plt.axvline(20, color=RED, lw=2.5, ls="--", label="20 mi nero line")
 plt.axvline(np.mean(mm), color=DEEP, lw=2, label=f"mean {np.mean(mm):.1f}")
 plt.xlabel("trail miles in a day")
 plt.ylabel("days")

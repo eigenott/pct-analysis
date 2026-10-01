@@ -18,6 +18,9 @@ rawdata/
 # Standalone graphics for posting — generated, local-only
 graphics/
 
+# Hiker timeline annotations — private, local-only
+annotations/
+
 # macOS
 .DS_Store
 

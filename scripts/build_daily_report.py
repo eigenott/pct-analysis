@@ -53,8 +53,8 @@ def main() -> None:
             # section holding most of their miles (approximation, noted in docs)
         ])
         .with_columns([
-            (pl.col("net_mi") >= 25).alias("is_full"),
-            ((pl.col("section") != "SoCal") & (pl.col("net_mi") < 25)).alias("is_nero"),
+            (pl.col("net_mi") >= 20).alias("is_full"),
+            ((pl.col("section") != "SoCal") & (pl.col("net_mi") < 20)).alias("is_nero"),
         ])
         .drop("_mid_mi")
         .with_columns([

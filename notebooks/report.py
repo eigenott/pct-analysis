@@ -216,8 +216,12 @@ def _(alt, daily, mo, pl):
 @app.cell
 def _(mo, pl):
     mo.md("## Confirmed timeline — annotate the changepoints against this")
-    ann = pl.read_csv("annotations/events.csv")
-    mo.ui.table(ann)
+    from pathlib import Path
+    if Path("annotations/events.csv").exists():  # private, local-only
+        ann = pl.read_csv("annotations/events.csv")
+        mo.ui.table(ann)
+    else:
+        mo.md("*Timeline annotations are private and not in git.*")
     return
 
 
@@ -239,7 +243,7 @@ def _(daily, mo, pl):
     mo.md("""
     ## Sections — five hikes in one (SoCal <702, Sierra <1092, NorCal <1694, Oregon <2146, Washington to end)
 
-    Days assigned by midpoint trail mile. Past the desert, <25 mi = nero.
+    Days assigned by midpoint trail mile. Past the desert, <20 mi = nero.
     """)
     order = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
     sec = (
@@ -275,7 +279,7 @@ def _(daily, mo, pl):
 
 @app.cell
 def _(SEC_COLORS, SEC_ORDER, alt, daily, mo, pl):
-    mo.md("## Full days only (≥25 mi) — pace by section, zeros and neros excluded")
+    mo.md("## Full days only (≥20 mi) — pace by section, zeros and neros excluded")
     fd = daily.filter(pl.col("is_full")).with_columns(
         pl.col("date").str.to_datetime().alias("day"))
     pace_sec = (

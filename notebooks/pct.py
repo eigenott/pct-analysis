@@ -115,19 +115,26 @@ def _(alt, mo, pl):
     route = pl.read_parquet("data/daily_route.parquet").with_columns(
         pl.col("date").str.to_datetime().alias("day")
     )
-    ann = (
-        pl.read_csv("annotations/events.csv")
-        .with_columns([
-            pl.col("start_date").str.to_datetime().alias("start"),
-            pl.col("end_date").str.to_datetime().alias("end"),
-        ])
-        .with_columns(
-            pl.when(pl.col("end") > pl.col("start"))
-            .then(pl.col("end")).otherwise(pl.col("start") + pl.duration(hours=12))
-            .alias("end")
+    from pathlib import Path
+
+    import pandas as pd
+    if Path("annotations/events.csv").exists():  # private, local-only overlay
+        ann = (
+            pl.read_csv("annotations/events.csv")
+            .with_columns([
+                pl.col("start_date").str.to_datetime().alias("start"),
+                pl.col("end_date").str.to_datetime().alias("end"),
+            ])
+            .with_columns(
+                pl.when(pl.col("end") > pl.col("start"))
+                .then(pl.col("end")).otherwise(pl.col("start") + pl.duration(hours=12))
+                .alias("end")
+            )
+            .to_pandas()
         )
-        .to_pandas()
-    )
+    else:
+        ann = pd.DataFrame({"start": pd.to_datetime([]), "end": pd.to_datetime([]),
+                            "label": [], "status": []})
     prog = (
         alt.Chart(route.to_pandas())
         .mark_line(point=True, color="#7A7AD6")

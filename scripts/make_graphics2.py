@@ -44,7 +44,7 @@ def save(name):
 print("rendering graphics 16-30...", flush=True)
 
 # 16 — day-type composition per section ----------------------------------------
-cats = ["full (≥25 mi)", "nero (<25, past desert)", "short desert day"]
+cats = ["full (≥20 mi)", "nero (<20, past desert)", "short desert day"]
 vals = {c: [] for c in cats}
 for s in SECTIONS:
     sd = [r for r in d if r["section"] == s]
@@ -83,20 +83,26 @@ plt.title("Pace distributions by section", fontsize=13, weight="bold")
 plt.legend(frameon=False)
 save("18_pace_dist.png")
 
-# 19 — start times by section ------------------------------------------------------
-plt.figure(figsize=(10, 5))
-for i, (s, col) in enumerate(zip(SECTIONS, SECC)):
+# 19 — start times by section, violins -------------------------------------------------
+plt.figure(figsize=(10, 5.5))
+data19 = []
+for s in SECTIONS:
     mins = []
     for r in d:
         if r["section"] == s:
             mins.append(int(r["start_local"][:2]) * 60 + int(r["start_local"][3:]))
-    mins = np.array(mins)
-    plt.scatter(mins, np.full_like(mins, i, dtype=float), color=col, s=45, alpha=0.85, zorder=3)
-    plt.hlines(i, mins.min(), mins.max(), color=col, alpha=0.4)
-    plt.plot([np.median(mins)], [i], marker="|", ms=20, mew=3, color="black")
-plt.yticks(range(5), SECTIONS)
-plt.xlabel("start time (minutes after midnight PT)")
-plt.title("Start times by section (black tick = median)", fontsize=13, weight="bold")
+    data19.append(np.array(mins))
+parts = plt.violinplot(data19, showmedians=True, widths=0.8)
+for p, c in zip(parts["bodies"], SECC):
+    p.set_facecolor(c)
+    p.set_alpha(0.75)
+parts["cmedians"].set_color("black")
+parts["cmedians"].set_linewidth(2)
+plt.xticks(range(1, 6), SECTIONS)
+plt.ylabel("start time (PT)")
+plt.gca().yaxis.set_major_formatter(
+    matplotlib.ticker.FuncFormatter(lambda v, _: f"{int(v)//60:02d}:{int(v)%60:02d}"))
+plt.title("Start-time distributions by section (black = median)", fontsize=13, weight="bold")
 save("19_starts.png")
 
 # 20 — camp elevation range by section -----------------------------------------------
@@ -181,27 +187,29 @@ totals = [sum(1 for r in d if r["section"] == s) for s in SECTIONS]
 neros = [sum(1 for r in d if r["section"] == s and r["is_nero"]) for s in SECTIONS]
 rate = [100 * n / t for n, t in zip(neros, totals)]
 plt.bar(SECTIONS, rate, color=SECC, edgecolor="white")
-plt.ylabel("% of hiking days under 25 mi")
+plt.ylabel("% of hiking days under 20 mi")
 plt.title("Nero rate by section (desert excluded by definition)", fontsize=13, weight="bold")
 for s, v, n in zip(SECTIONS, rate, neros):
     plt.text(s, v + 0.4, f"{n}", ha="center", fontsize=10)
 save("25_neros.png")
 
-# 26 — hourly mileage curves per section ------------------------------------------------------------------
+# 26 — hourly mileage shapes per section (overlapping areas) -------------------------------
 hh = pl.read_parquet(BASE / "data" / "hourly.parquet")
-plt.figure(figsize=(10, 5.5))
+plt.figure(figsize=(11, 5.5))
 for s, col in zip(SECTIONS, SECC):
     dd = [r["date"] for r in d if r["section"] == s and r["is_full"]]
     cur = (hh.filter(pl.col("date").is_in(dd)).group_by("hour_local")
            .agg(pl.col("mi").median().alias("m")).sort("hour_local"))
-    plt.plot(cur["hour_local"], cur["m"], label=s, color=col, lw=2.5, marker="o", ms=4)
+    xh, yh = cur["hour_local"].to_numpy(), cur["m"].to_numpy()
+    plt.fill_between(xh, yh, alpha=0.28, color=col)
+    plt.plot(xh, yh, label=s, color=col, lw=2.5)
 plt.xlabel("hour (PT)")
 plt.ylabel("median miles in that hour (full days)")
-plt.title("When each section moves", fontsize=13, weight="bold")
+plt.title("Daily rhythm fingerprints, one layer per section", fontsize=13, weight="bold")
 plt.legend(frameon=False)
 save("26_hourly_sections.png")
 
-# 27 — grade-speed curves per section -----------------------------------------------------------------------
+# 27 — grade-speed curves per section, dark -------------------------------------------------
 seg = pl.read_parquet(BASE / "data" / "segments.parquet").filter(
     pl.col("kept_h5") & (pl.col("dist_mi") * 5280 > 100)
     & (pl.col("dt_s") >= 8) & (pl.col("dt_s") <= 120)
@@ -209,17 +217,19 @@ seg = pl.read_parquet(BASE / "data" / "segments.parquet").filter(
 seg = seg.with_columns(((pl.col("grade") * 50).round() * 2).alias("gp"))
 ssec = seg.join(pl.read_parquet(BASE / "data" / "daily_report.parquet").select(["date", "section"]),
                 on="date", how="left")
-plt.figure(figsize=(10, 5.5))
+fig27, ax27 = plt.subplots(figsize=(11, 5.5), facecolor="black")
+ax27.set_facecolor("black")
 for s, col in zip(SECTIONS, SECC):
     g = (ssec.filter(pl.col("section") == s).group_by("gp")
          .agg(pl.col("mph").median().alias("m"), pl.len().alias("n"))
          .filter(pl.col("n") > 30).sort("gp"))
-    plt.plot(g["gp"], g["m"], label=s, color=col, lw=2.5)
-plt.axvline(0, color="black", alpha=0.3, ls="--")
-plt.xlabel("grade (%)")
-plt.ylabel("median mph")
-plt.title("How grade taxes speed, by section", fontsize=13, weight="bold")
-plt.legend(frameon=False)
+    ax27.plot(g["gp"], g["m"], label=s, color=col, lw=3)
+ax27.axvline(0, color="white", alpha=0.3, ls="--")
+ax27.set_xlabel("grade (%)", color="white")
+ax27.set_ylabel("median mph", color="white")
+ax27.set_title("How grade taxes speed, by section", fontsize=13, weight="bold", color="white")
+ax27.tick_params(colors="white")
+ax27.legend(frameon=False, labelcolor="white")
 save("27_grade_sections.png")
 
 # 28 — cumulative ascent staircase -------------------------------------------------------------------------------
