@@ -32,7 +32,7 @@ def _(mo, pl):
     odd = pl.read_parquet("data/oddities.parquet").sort("date")
     markers = pl.read_parquet("data/route_markers.parquet").sort("mile")
     SEC_ORDER = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
-    SEC_COLORS = ["#BBBBF2", "#9D9DE0", "#7A7AD6", "#5A5AB8", "#3D3D8F"]
+    SEC_COLORS = ["#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00"]
     mo.md(
         f"**{daily['net_mi'].sum():.1f} trail miles** · "
         f"{daily.height} hiking days · "
@@ -292,6 +292,22 @@ def _(SEC_COLORS, SEC_ORDER, alt, daily, mo, pl):
                         scale=alt.Scale(domain=SEC_ORDER, range=SEC_COLORS)),
         tooltip=["section", "med_pace", "n"],
     ).properties(width=800, height=240)
+    return
+
+
+@app.cell
+def _(mo, pl):
+    mo.md("""
+    ## The big climbs — sustained 2,000 ft+ ascents (600 ft dip tolerance)
+
+    Net gain is start-to-top; gross counts every roller inside. Your
+    mile-350 monster: **5,190 ft net (12,608 gross)** over 24.6 mi,
+    May 16–18, at 1.74 mph — the slowest pace of any top climb.
+    """)
+    cl = pl.read_parquet("data/climbs.parquet").select(
+        ["rank", "start_mi", "end_mi", "gain_ft", "gross_up_ft",
+         "length_mi", "ft_per_mi", "section", "hike_dates", "pace_mph"])
+    mo.ui.table(cl)
     return
 
 

@@ -24,7 +24,7 @@ DEEP = "#3D3D8F"
 MID = "#7A7AD6"
 RED = "#C0392B"
 SECTIONS = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
-SECC = ["#BBBBF2", "#9D9DE0", "#7A7AD6", "#5A5AB8", "#3D3D8F"]
+SECC = ["#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00"]
 BOUNDS = [0, 702, 1092, 1694, 2146, 2660]
 
 plt.rcParams.update({
@@ -106,7 +106,7 @@ plt.plot(cum, color=DEEP, lw=2, label="actual")
 plt.plot(ideal, color=RED, ls="--", lw=1.5, label="perfectly even pace")
 plt.xticks(range(0, len(d), 10), [d[i]["date"][5:] for i in range(0, len(d), 10)], rotation=45)
 plt.ylabel("cumulative trail miles")
-plt.title("2,443 miles, one step at a time (dashed = robot pace)", fontsize=13, weight="bold")
+plt.title("Cumulative trail miles vs even pace", fontsize=13, weight="bold")
 plt.legend(frameon=False)
 save("04_cumulative.png")
 
@@ -124,7 +124,7 @@ ax.plot(gg["gp"], gg["m"], color=BRAND, lw=3, marker="o", ms=5)
 ax.axvline(0, color="white", alpha=0.3, ls="--")
 ax.set_xlabel("grade (%)", color="white")
 ax.set_ylabel("median mph", color="white")
-ax.set_title("Gravity always wins", fontsize=15, weight="bold", color="white")
+ax.set_title("Median hiking speed by trail grade", fontsize=15, weight="bold", color="white")
 ax.tick_params(colors="white")
 save("05_grade_speed.png")
 
@@ -141,7 +141,7 @@ xs = np.linspace(min(np.array(x)[ok]), max(np.array(x)[ok]), 50)
 plt.plot(xs, a + b * xs, color=RED, lw=2)
 plt.xlabel("sleep that morning (hours)")
 plt.ylabel("trail miles that day")
-plt.title("Big sleep ≠ big day (r = 0.03 — rest more, hike less?)", fontsize=13, weight="bold")
+plt.title("Sleep duration vs daily miles (r = 0.03)", fontsize=13, weight="bold")
 save("06_sleep_vs_miles.png")
 
 # 7 — start time vs miles -------------------------------------------------------
@@ -151,7 +151,7 @@ plt.scatter(st, [r["net_mi"] for r in d],
             c=[SECC[SECTIONS.index(r["section"])] for r in d], s=55, alpha=0.8, edgecolors="white")
 plt.xlabel("start time (minutes after midnight PT)")
 plt.ylabel("trail miles")
-plt.title("Does the early bird get the miles?", fontsize=13, weight="bold")
+plt.title("Start time vs daily miles", fontsize=13, weight="bold")
 save("07_early_bird.png")
 
 # 8 — daily miles histogram ------------------------------------------------------
@@ -162,7 +162,7 @@ plt.axvline(25, color=RED, lw=2.5, ls="--", label="25 mi nero line")
 plt.axvline(np.mean(mm), color=DEEP, lw=2, label=f"mean {np.mean(mm):.1f}")
 plt.xlabel("trail miles in a day")
 plt.ylabel("days")
-plt.title("What does a thru-hiking day look like?", fontsize=13, weight="bold")
+plt.title("Distribution of daily trail miles", fontsize=13, weight="bold")
 plt.legend(frameon=False)
 save("08_histogram.png")
 
@@ -173,7 +173,7 @@ plt.figure(figsize=(8, 4.5))
 plt.barh([r["section"] for r in med], [r["m"] for r in med],
          color=[SECC[SECTIONS.index(r["section"])] for r in med], edgecolor="white")
 plt.xlabel("median pace, full days (mph)")
-plt.title("Oregon is fast, the Sierra is not", fontsize=13, weight="bold")
+plt.title("Median pace on full days by section", fontsize=13, weight="bold")
 save("09_section_pace.png")
 
 # 10 — camp skyline -----------------------------------------------------------------
@@ -182,7 +182,7 @@ plt.fill_between(range(len(d)), [r["camp_end_ft"] for r in d], color=BRAND, alph
 plt.plot([r["camp_end_ft"] for r in d], color=DEEP, lw=1)
 plt.xticks(range(0, len(d), 10), [d[i]["date"][5:] for i in range(0, len(d), 10)], rotation=45)
 plt.ylabel("camp elevation (ft)")
-plt.title("99 bedrooms, no roof", fontsize=13, weight="bold")
+plt.title("Camp elevation each night", fontsize=13, weight="bold")
 save("10_camps.png")
 
 # 11 — breaks gantt ------------------------------------------------------------------
@@ -196,7 +196,7 @@ for i, dd in enumerate(days):
 plt.yticks(range(len(days)), [x[5:] for x in days], fontsize=8)
 plt.xlim(0, 1440)
 plt.xlabel("time of day (PT — overnight breaks run off the right edge)")
-plt.title(f"{len(brk)} detected breaks — the ones the watch wasn't paused for",
+plt.title("Detected breaks by day and time of day",
           fontsize=13, weight="bold")
 save("11_breaks.png")
 
@@ -213,7 +213,7 @@ for p, c in zip(parts["bodies"], SECC):
     p.set_alpha(0.8)
 plt.xticks(range(1, 6), SECTIONS)
 plt.ylabel("heart rate (bpm, every recorded fix)")
-plt.title("99 days of heartbeat, by section", fontsize=13, weight="bold")
+plt.title("Heart rate distribution by section", fontsize=13, weight="bold")
 save("12_heartbeat.png")
 
 # 13 — skips waterfall ------------------------------------------------------------------
@@ -255,7 +255,7 @@ plt.barh([f"{r['date'][5:]}" for r in top][::-1], [r["net_mi"] for r in top][::-
 for i, r in enumerate(top[::-1]):
     plt.text(r["net_mi"] + 0.3, i, f"{r['ascent_ft']:,} ft up", va="center", fontsize=9)
 plt.xlabel("trail miles")
-plt.title("Top 10 days — distance with the climbing receipt", fontsize=13, weight="bold")
+plt.title("Longest 10 days with elevation climbed", fontsize=13, weight="bold")
 save("15_hardest.png")
 
 print("done → graphics/", flush=True)
