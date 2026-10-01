@@ -33,6 +33,9 @@ def main() -> None:
     sizes = np.array([len(s) for s in g["ts"].to_list()])
     files = np.array(g["source_file"].to_list())
     seg_date, seg_file = np.repeat(dates, sizes)[ok], np.repeat(files, sizes)[ok]
+    # point_index of each segment's start fix (for run detection downstream)
+    pt_all = np.concatenate(g["idx"].to_list())
+    seg_pt = pt_all[ok]
     ts0 = np.concatenate([np.array([x.timestamp() for x in s]) for s in g["ts"].to_list()])
     valid = ~np.isnan(spd) & (dts > 0)
 
@@ -45,6 +48,7 @@ def main() -> None:
     seg = pl.DataFrame({
         "date": seg_date,
         "source_file": seg_file,
+        "seg_order": np.arange(len(ok)),  # global order; adjacency = consecutive segs
         "dist_mi": dist * M_TO_MI,
         "dt_s": dts,
         "mph": spd * MS_TO_MPH,

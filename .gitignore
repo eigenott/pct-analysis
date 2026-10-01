@@ -12,6 +12,9 @@ wheels/
 # Generated data (rebuild with scripts/build_tracks.py)
 data/
 
+# Raw Garmin export + GPX — huge, local-only, NEVER commit
+rawdata/
+
 # macOS
 .DS_Store
 

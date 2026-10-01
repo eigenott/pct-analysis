@@ -198,13 +198,13 @@ def _(alt, daily, mo, pl):
     )
     camp = daily.select(["date", "camp_end_ft"]).with_columns(
         pl.col("date").str.to_datetime().alias("day")).to_pandas()
-    band = alt.Chart(eb).mark_area(color="#BBBBF2", opacity=0.6).encode(
+    band_elev = alt.Chart(eb).mark_area(color="#BBBBF2", opacity=0.6).encode(
         x=alt.X("day:T", title="date"),
         y=alt.Y("lo_ft:Q", title="elevation (ft)"),
         y2="hi_ft:Q",
         tooltip=["date", "lo_ft", "hi_ft"],
     )
-    (band + alt.Chart(camp).mark_line(color="#7A7AD6").encode(x="day:T", y="camp_end_ft:Q")).properties(height=260)
+    (band_elev + alt.Chart(camp).mark_line(color="#7A7AD6").encode(x="day:T", y="camp_end_ft:Q")).properties(height=260)
     return
 
 
@@ -287,6 +287,191 @@ def _(alt, daily, mo, pl):
                 scale=alt.Scale(zero=False)),
         tooltip=["section", "med_pace", "n"],
     ).properties(height=240)
+    return
+
+
+@app.cell
+def _(alt, daily, mo, pl):
+    mo.md("## Heat — median speed by hour and section (kept segments)")
+    sec_speed = (
+        pl.scan_parquet("data/segments.parquet")
+        .filter(pl.col("kept_h5") & (pl.col("dt_s") <= 120))
+        .collect()
+        .join(daily.select(["date", "section"]), on="date", how="left")
+        .group_by(["hour_local", "section"])
+        .agg(pl.col("mph").median().alias("med_mph"))
+        .to_pandas()
+    )
+    alt.Chart(sec_speed).mark_rect().encode(
+        x=alt.X("hour_local:O", title="hour (PT)"),
+        y=alt.Y("section:N", title=None,
+                sort=["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]),
+        color=alt.Color("med_mph:Q", title="median mph",
+                        scale=alt.Scale(scheme="purples")),
+        tooltip=["hour_local", "section", "med_mph"],
+    ).properties(height=200)
+    return
+
+
+@app.cell
+def _(alt, mo, pl):
+    mo.md("## When were the big hours? — miles per clock hour, all season")
+    hm = (
+        pl.read_parquet("data/hourly.parquet").with_columns(
+            pl.col("date").str.to_datetime().alias("day"))
+        .to_pandas()
+    )
+    alt.Chart(hm).mark_rect().encode(
+        x=alt.X("hour_local:O", title="hour (PT)"),
+        y=alt.Y("day:T", title="date"),
+        color=alt.Color("mi:Q", title="miles",
+                        scale=alt.Scale(scheme="purples")),
+        tooltip=["date", "hour_local", "mi"],
+    ).properties(height=500)
+    return
+
+
+@app.cell
+def _(alt, daily, mo):
+    mo.md("## 2D scatters — what actually drives a big day?")
+    order2d = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
+    base = alt.Chart(daily.to_pandas()).mark_circle(size=60).encode(
+        color=alt.Color("section:N", legend=None,
+                        scale=alt.Scale(domain=order2d,
+                                        range=["#BBBBF2", "#9D9DE0", "#7A7AD6",
+                                               "#5A5AB8", "#3D3D8F"])),
+        tooltip=["date", "section", "net_mi", "ascent_ft", "pace_mph",
+                 "start_local", "avg_hr"],
+    )
+    one = base.encode(x="ascent_ft:Q", y="pace_mph:Q").properties(
+        title="climb vs pace", height=240)
+    two = base.encode(x="avg_hr:Q", y="pace_mph:Q").properties(
+        title="effort vs pace", height=240)
+    mo.hstack([one, two])
+    return
+
+
+@app.cell
+def _(alt, daily, mo, pl):
+    mo.md("## 3D — big-day anatomy: climb × sleep × miles (color = section)")
+    import plotly.express as px
+    slp3 = pl.read_parquet("data/sleep.parquet").select(["date", "sleep_hrs"])
+    d3 = daily.join(slp3, on="date", how="left").to_pandas()
+    px.scatter_3d(d3, x="ascent_ft", y="sleep_hrs", z="net_mi", color="section",
+                  hover_name="date",
+                  labels={"ascent_ft": "climb (ft)", "sleep_hrs": "sleep (h)",
+                          "net_mi": "miles"},
+                  height=520).update_traces(marker={"size": 5})
+    return
+
+
+@app.cell
+def _(alt, mo, pl):
+    mo.md("""
+    ## Breaks — detected from stillness (watch left running, <0.7 mph for 10+ min)
+
+    Pausing the watch hides breaks, so these are a lower bound — 74 days show
+    no detected stop, mostly because the watch was paused, not because rest
+    didn't happen.
+    """)
+    brk = pl.read_parquet("data/breaks.parquet")
+    hist = (
+        alt.Chart(brk.with_columns(
+            pl.col("start_local").str.slice(0, 2).cast(pl.Int64).alias("hr"))
+            .to_pandas())
+        .mark_bar(color="#BBBBF2").encode(
+            x=alt.X("hr:O", title="break start hour (PT)"),
+            y=alt.Y("count():Q", title="breaks"),
+            tooltip=["hr", "count()"],
+        ).properties(height=220)
+    )
+    hist
+    return (brk,)
+
+
+@app.cell
+def _(brk, mo):
+    mo.md(
+        f"**{brk.height} breaks** on {brk['date'].n_unique()} days "
+        f"(median **{brk['minutes'].median():.0f} min**). Longest: "
+        f"**{brk['minutes'].max():.0f} min** on "
+        f"{brk.sort('minutes', descending=True).row(0, named=True)['date']} "
+        f"— watch probably ran overnight."
+    )
+    return
+
+
+@app.cell
+def _(alt, mo, pl):
+    mo.md("## Fastest hour — median miles per clock hour, full days only")
+    hrly = (
+        pl.read_parquet("data/hourly.parquet")
+        .join(pl.read_parquet("data/daily_report.parquet")
+              .select(["date", "is_full"]), on="date", how="left")
+        .filter(pl.col("is_full"))
+        .group_by("hour_local")
+        .agg(pl.col("mi").median().alias("med_mi"))
+        .sort("hour_local").to_pandas()
+    )
+    alt.Chart(hrly).mark_bar(color="#7A7AD6").encode(
+        x=alt.X("hour_local:O", title="hour (PT)"),
+        y=alt.Y("med_mi:Q", title="median miles in that hour"),
+        tooltip=["hour_local", "med_mi"],
+    ).properties(height=240)
+    return
+
+
+@app.cell
+def _(alt, mo, pl):
+    mo.md("## Sleep — duration trend, then does it matter tomorrow?")
+    slp = pl.read_parquet("data/sleep.parquet").with_columns(
+        pl.col("date").str.to_datetime().alias("day")).to_pandas()
+    trend = alt.Chart(slp).mark_line(point=True, color="#7A7AD6").encode(
+        x=alt.X("day:T", title="date"),
+        y=alt.Y("sleep_hrs:Q", title="sleep (h)", scale=alt.Scale(zero=False)),
+        tooltip=["date", "sleep_hrs", "score_overall", "deep_hrs", "rem_hrs"],
+    ).properties(height=240)
+    trend
+    return (slp,)
+
+
+@app.cell
+def _(alt, daily, mo, pl):
+    mo.md("## Sleep vs next-day miles — do big sleeps make big days?")
+    js = daily.select(["date", "net_mi", "section"]).join(
+        pl.read_parquet("data/sleep.parquet").select(["date", "sleep_hrs"]),
+        on="date", how="left").to_pandas()
+    order_js = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
+    (alt.Chart(js).mark_circle(size=60).encode(
+        x=alt.X("sleep_hrs:Q", title="sleep that morning (h)"),
+        y=alt.Y("net_mi:Q", title="trail miles that day"),
+        color=alt.Color("section:N", legend=None,
+                        scale=alt.Scale(domain=order_js,
+                                        range=["#BBBBF2", "#9D9DE0", "#7A7AD6",
+                                               "#5A5AB8", "#3D3D8F"])),
+        tooltip=["date", "sleep_hrs", "net_mi"],
+    ) + alt.Chart(js).transform_regression("sleep_hrs", "net_mi").mark_line(
+        color="firebrick").encode(x="sleep_hrs:Q", y="net_mi:Q")
+    ).properties(height=280)
+    return
+
+
+@app.cell
+def _(alt, mo, pl):
+    mo.md("## HRV mornings — recovery signal vs pace that day")
+    hv = (
+        pl.read_parquet("data/hrv.parquet").with_columns(
+            pl.col("date").str.to_datetime().alias("day"))
+        .join(pl.read_parquet("data/daily_report.parquet").select(["date", "pace_mph"]),
+              on="date", how="left")
+        .to_pandas()
+    )
+    band_hrv = alt.Chart(hv).mark_area(opacity=0.25, color="#BBBBF2").encode(
+        x="day:T", y="hrv_lo:Q", y2="hrv_hi:Q")
+    (band_hrv + alt.Chart(hv).mark_line(point=True, color="#7A7AD6").encode(
+        x="day:T", y=alt.Y("hrv:Q", title="morning HRV (ms)", scale=alt.Scale(zero=False)),
+        tooltip=["date", "hrv", "hrv_status", "pace_mph"],
+    )).properties(height=260)
     return
 
 

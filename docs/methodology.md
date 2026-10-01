@@ -122,3 +122,17 @@ three skips above.
 - `scripts/build_segments.py` → `data/segments.parquet`: one row per
   in-file fix pair (dist, dt, mph, dAlt, grade, H5 flag, local hour) —
   powers grade-vs-speed and time-of-day analyses in the report.
+
+## 8. Wellness, breaks, hourly miles
+
+- `scripts/build_wellness.py`: Garmin `sleepData.json` (two files span the
+  hike) → `sleep.parquet` — longest window per calendarDate (wake date
+  joins to the same hiking date), stages in hours, overall/quality/recovery
+  scores, sleep stress. `healthStatusData.json` → `hrv.parquet`: morning
+  HRV + baseline band + status, resting HR. 99 of 109 window dates have
+  both; mean 7.19 h/night, mean score 68.
+- `scripts/build_breaks_hourly.py`: breaks = consecutive in-file fixes
+  under 0.7 mph spanning 10+ min (`breaks.parquet` — start/end local,
+  minutes, GPS drift). Pausing the watch hides breaks, so 28 detected
+  breaks on 25 days are a lower bound, not a census. `hourly.parquet`:
+  kept-segment miles per date × local hour for fastest-hour analysis.
