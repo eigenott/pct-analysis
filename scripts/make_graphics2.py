@@ -44,16 +44,15 @@ def save(name):
 print("rendering graphics 16-30...", flush=True)
 
 # 16 — day-type composition per section ----------------------------------------
-cats = ["full (≥20 mi)", "nero (<20, past desert)", "short desert day"]
+cats = ["full (≥20 mi)", "nero (<20 mi)"]
 vals = {c: [] for c in cats}
 for s in SECTIONS:
     sd = [r for r in d if r["section"] == s]
     vals[cats[0]].append(sum(1 for r in sd if r["is_full"]))
     vals[cats[1]].append(sum(1 for r in sd if r["is_nero"]))
-    vals[cats[2]].append(sum(1 for r in sd if not r["is_full"] and not r["is_nero"]))
 plt.figure(figsize=(10, 5))
 b = np.zeros(5)
-for c, col in zip(cats, ["#3D3D8F", "#D55E00", "#BBBBF2"]):
+for c, col in zip(cats, ["#888888", "#D55E00"]):
     plt.bar(SECTIONS, vals[c], bottom=b, label=c, color=col)
     b += np.array(vals[c])
 plt.ylabel("days")
@@ -63,24 +62,28 @@ save("16_day_types.png")
 
 # 17 — daily miles, small multiples by section ----------------------------------
 fig, axes = plt.subplots(5, 1, figsize=(11, 7), sharex=False)
+maxn = max(sum(1 for r in d if r["section"] == s) for s in SECTIONS)
 for ax, s, col in zip(axes, SECTIONS, SECC):
     sd = [r for r in d if r["section"] == s]
     ax.bar(range(len(sd)), [r["net_mi"] for r in sd], color=col)
     ax.set_ylabel(s, rotation=0, ha="right", va="center", fontsize=10)
     ax.set_xticks([])
     ax.set_ylim(0, 45)
-fig.suptitle("Daily trail miles, one panel per section", fontsize=13, weight="bold")
+    ax.set_xlim(-0.6, maxn - 0.4)
+fig.suptitle("Daily miles by section (equal-width panels)", fontsize=13, weight="bold")
 save("17_panels_miles.png")
 
-# 18 — pace distributions by section ---------------------------------------------
-plt.figure(figsize=(10, 5.5))
-for s, col in zip(SECTIONS, SECC):
-    v = [r["pace_mph"] for r in d if r["section"] == s and r["is_full"]]
-    plt.hist(v, bins=12, alpha=0.45, label=f"{s} (n={len(v)})", color=col, edgecolor="white")
-plt.xlabel("pace on full days (mph)")
-plt.ylabel("days")
-plt.title("Pace distributions by section", fontsize=13, weight="bold")
-plt.legend(frameon=False)
+# 18 — pace range by section (median dot + IQR bar) ---------------------------------
+plt.figure(figsize=(10, 5))
+for i, (s, col) in enumerate(zip(SECTIONS, SECC)):
+    v = np.array([r["pace_mph"] for r in d if r["section"] == s and r["is_full"]])
+    q = np.percentile(v, [25, 50, 75])
+    plt.errorbar(q[1], i, xerr=[[q[1] - q[0]], [q[2] - q[1]]],
+                 fmt="o", color=col, ecolor=col, elinewidth=4, ms=10,
+                 capsize=8, capthick=3)
+plt.yticks(range(5), SECTIONS)
+plt.xlabel("pace on full days (mph) — dot = median, bar = middle 50%")
+plt.title("Pace range by section", fontsize=13, weight="bold")
 save("18_pace_dist.png")
 
 # 19 — start times by section, violins -------------------------------------------------
@@ -105,36 +108,39 @@ plt.gca().yaxis.set_major_formatter(
 plt.title("Start-time distributions by section (black = median)", fontsize=13, weight="bold")
 save("19_starts.png")
 
-# 20 — camp elevation range by section -----------------------------------------------
+# 20 — camp elevations by section (strip + median) -----------------------------------
 plt.figure(figsize=(10, 5))
 for i, (s, col) in enumerate(zip(SECTIONS, SECC)):
     v = np.array([r["camp_end_ft"] for r in d if r["section"] == s])
-    plt.barh(i, v.max() - v.min(), left=v.min(), height=0.5, color=col, alpha=0.7)
-    plt.plot([np.median(v)], [i], marker="o", color="black", ms=8)
+    j = np.random.default_rng(i).uniform(-0.15, 0.15, len(v))
+    plt.scatter(v, np.full(len(v), i) + j, color=col, s=44, alpha=0.85,
+                edgecolors="white", zorder=3)
+    plt.plot([np.median(v)], [i], marker="|", ms=24, mew=3, color="black")
 plt.yticks(range(5), SECTIONS)
-plt.xlabel("camp elevation (ft; bar = min–max, dot = median)")
-plt.title("Where each section lets you sleep", fontsize=13, weight="bold")
+plt.xlabel("camp elevation (ft; black tick = median)")
+plt.title("Camp elevations by section", fontsize=13, weight="bold")
 save("20_camps_range.png")
 
-# 21 — sleep by section ------------------------------------------------------------------
+# 21 — sleep by section (mean ± SD) --------------------------------------------------------
 slp = {r["date"]: r["sleep_hrs"] for r in
        pl.read_parquet(BASE / "data" / "sleep.parquet").to_dicts()}
 plt.figure(figsize=(10, 5))
+means, sds = [], []
 for i, (s, col) in enumerate(zip(SECTIONS, SECC)):
     v = np.array([slp[r["date"]] for r in d
                   if r["section"] == s and r["date"] in slp and slp[r["date"]] is not None])
-    plt.bar(i, v.mean(), color=col, width=0.6)
-    plt.scatter(np.full_like(v, i, dtype=float)
-                + np.random.default_rng(i).uniform(-0.18, 0.18), v,
-                color="black", s=18, alpha=0.5, zorder=3)
-    plt.text(i, v.mean() + 0.08, f"{v.mean():.2f} h", ha="center", fontsize=10)
+    means.append(v.mean())
+    sds.append(v.std())
+    plt.bar(i, v.mean(), yerr=v.std(), color=col, width=0.6,
+            ecolor="black", capsize=8, error_kw={"lw": 2})
+    plt.text(i, v.mean() + v.std() + 0.1, f"{v.mean():.2f} h", ha="center", fontsize=10)
 plt.xticks(range(5), SECTIONS)
-plt.ylabel("sleep (hours)")
-plt.title("Mean sleep by section with individual nights", fontsize=13, weight="bold")
+plt.ylabel("sleep (hours, mean ± SD)")
+plt.title("Mean sleep by section", fontsize=13, weight="bold")
 save("21_sleep.png")
 
-# 22 — daily ascent, small multiples -------------------------------------------------------
-fig, axes = plt.subplots(5, 1, figsize=(11, 7))
+# 22 — daily ascent, small multiples, shared y -----------------------------------------------
+fig, axes = plt.subplots(5, 1, figsize=(11, 7), sharey=True)
 for ax, s, col in zip(axes, SECTIONS, SECC):
     sd = [r for r in d if r["section"] == s]
     ax.fill_between(range(len(sd)), [r["ascent_ft"] for r in sd], color=col, alpha=0.7)
@@ -173,8 +179,9 @@ plt.figure(figsize=(10, 5))
 n = [sum(1 for b in brk if b["section"] == s) for s in SECTIONS]
 mins = [sum(b["minutes"] for b in brk if b["section"] == s) for s in SECTIONS]
 x = np.arange(5)
-plt.bar(x - 0.2, n, width=0.4, label="break count", color="#7A7AD6")
-plt.bar(x + 0.2, np.array(mins) / 60, width=0.4, label="total hours", color="#E69F00")
+plt.bar(x - 0.2, n, width=0.4, label="break count", color=SECC)
+plt.bar(x + 0.2, np.array(mins) / 60, width=0.4, label="total hours",
+        color=SECC, alpha=0.45, edgecolor=DEEP)
 plt.xticks(x, SECTIONS)
 plt.ylabel("count / hours")
 plt.title("Detected breaks by section", fontsize=13, weight="bold")
@@ -193,43 +200,45 @@ for s, v, n in zip(SECTIONS, rate, neros):
     plt.text(s, v + 0.4, f"{n}", ha="center", fontsize=10)
 save("25_neros.png")
 
-# 26 — hourly mileage shapes per section (overlapping areas) -------------------------------
+# 26 — morning vs afternoon slopegraph per section ---------------------------------------
 hh = pl.read_parquet(BASE / "data" / "hourly.parquet")
-plt.figure(figsize=(11, 5.5))
+plt.figure(figsize=(10, 5.5))
 for s, col in zip(SECTIONS, SECC):
     dd = [r["date"] for r in d if r["section"] == s and r["is_full"]]
-    cur = (hh.filter(pl.col("date").is_in(dd)).group_by("hour_local")
-           .agg(pl.col("mi").median().alias("m")).sort("hour_local"))
-    xh, yh = cur["hour_local"].to_numpy(), cur["m"].to_numpy()
-    plt.fill_between(xh, yh, alpha=0.28, color=col)
-    plt.plot(xh, yh, label=s, color=col, lw=2.5)
-plt.xlabel("hour (PT)")
-plt.ylabel("median miles in that hour (full days)")
-plt.title("Daily rhythm fingerprints, one layer per section", fontsize=13, weight="bold")
+    sub = hh.filter(pl.col("date").is_in(dd))
+    am = sub.filter(pl.col("hour_local") < 12).group_by("date").agg(
+        pl.col("mi").sum().alias("m"))["m"].median()
+    pm = sub.filter(pl.col("hour_local") >= 12).group_by("date").agg(
+        pl.col("mi").sum().alias("m"))["m"].median()
+    plt.plot([0, 1], [am, pm], label=f"{s} ({am:.1f}→{pm:.1f})", color=col,
+             lw=3, marker="o", ms=8)
+plt.xticks([0, 1], ["morning (before noon)", "afternoon"])
+plt.ylabel("median miles in that half (full days)")
+plt.title("Morning people? Afternoon people? By section", fontsize=13, weight="bold")
 plt.legend(frameon=False)
 save("26_hourly_sections.png")
 
-# 27 — grade-speed curves per section, dark -------------------------------------------------
+# 27 — grade × section speed heatmap -------------------------------------------------------
 seg = pl.read_parquet(BASE / "data" / "segments.parquet").filter(
     pl.col("kept_h5") & (pl.col("dist_mi") * 5280 > 100)
     & (pl.col("dt_s") >= 8) & (pl.col("dt_s") <= 120)
-    & (pl.col("grade").abs() < 0.3))
+    & (pl.col("grade").abs() < 0.16))
 seg = seg.with_columns(((pl.col("grade") * 50).round() * 2).alias("gp"))
 ssec = seg.join(pl.read_parquet(BASE / "data" / "daily_report.parquet").select(["date", "section"]),
                 on="date", how="left")
-fig27, ax27 = plt.subplots(figsize=(11, 5.5), facecolor="black")
-ax27.set_facecolor("black")
-for s, col in zip(SECTIONS, SECC):
-    g = (ssec.filter(pl.col("section") == s).group_by("gp")
-         .agg(pl.col("mph").median().alias("m"), pl.len().alias("n"))
-         .filter(pl.col("n") > 30).sort("gp"))
-    ax27.plot(g["gp"], g["m"], label=s, color=col, lw=3)
-ax27.axvline(0, color="white", alpha=0.3, ls="--")
-ax27.set_xlabel("grade (%)", color="white")
-ax27.set_ylabel("median mph", color="white")
-ax27.set_title("How grade taxes speed, by section", fontsize=13, weight="bold", color="white")
-ax27.tick_params(colors="white")
-ax27.legend(frameon=False, labelcolor="white")
+piv = (ssec.group_by(["section", "gp"]).agg(pl.col("mph").median().alias("m"))
+       .to_dicts())
+grades = sorted(set(r["gp"] for r in piv))
+mat = np.full((5, len(grades)), np.nan)
+for r in piv:
+    mat[SECTIONS.index(r["section"]), grades.index(r["gp"])] = r["m"]
+fig, ax = plt.subplots(figsize=(11, 5))
+im = ax.imshow(mat, cmap="YlOrRd", aspect="auto", vmin=2, vmax=4)
+ax.set_yticks(range(5), SECTIONS)
+ax.set_xticks(range(0, len(grades), 2), [f"{grades[i]:.0f}%" for i in range(0, len(grades), 2)])
+ax.set_xlabel("grade (%)")
+fig.colorbar(im, ax=ax, label="median mph", shrink=0.85)
+ax.set_title("Speed by grade and section (darker = faster)", fontsize=13, weight="bold")
 save("27_grade_sections.png")
 
 # 28 — cumulative ascent staircase -------------------------------------------------------------------------------
@@ -246,25 +255,24 @@ plt.ylabel("cumulative miles climbed (mi)")
 plt.title("Every foot of the ~81 miles climbed", fontsize=13, weight="bold")
 save("28_staircase.png")
 
-# 29 — trail vs camp elevation range per section ----------------------------------------------------------------------
+# 29 — highest ground per section: trail vs camp -------------------------------------------
 cl = pl.read_parquet(BASE / "data" / "route_centerline.parquet")
 bounds = [0, 702, 1092, 1694, 2146, 3000]
-trail, camps = [], []
+trail_max, camp_max = [], []
 for i in range(5):
     e = cl.filter((pl.col("route_mi") >= bounds[i]) & (pl.col("route_mi") < bounds[i + 1]))["ele_m"] * 3.28084
-    trail.append((float(e.min()), float(e.max())))
+    trail_max.append(float(e.max()))
     v = np.array([r["camp_end_ft"] for r in d if r["section"] == SECTIONS[i]])
-    camps.append((float(v.min()), float(v.max())))
+    camp_max.append(float(v.max()))
 x = np.arange(5)
 plt.figure(figsize=(10, 5.5))
-plt.bar(x - 0.2, [b - a for a, b in trail], bottom=[a for a, _ in trail],
-        width=0.4, label="trail elevation span", color="#BBBBF2", edgecolor=DEEP)
-plt.bar(x + 0.2, [b - a for a, b in camps], bottom=[a for a, _ in camps],
-        width=0.4, label="camp elevation span", color="#E69F00", edgecolor=DEEP)
+plt.bar(x, trail_max, width=0.6, color=SECC, edgecolor="white", label="highest trail point")
+plt.scatter(x, camp_max, s=120, color="black", zorder=3, label="highest camp")
+for i, (t, c) in enumerate(zip(trail_max, camp_max)):
+    plt.text(i, t + 150, f"{t:,.0f} ft", ha="center", fontsize=9)
 plt.xticks(x, SECTIONS)
 plt.ylabel("elevation (ft)")
-plt.title("How much vertical each section holds: trail vs where I slept",
-          fontsize=13, weight="bold")
+plt.title("Highest trail point vs highest camp, by section", fontsize=13, weight="bold")
 plt.legend(frameon=False)
 save("29_ranges.png")
 

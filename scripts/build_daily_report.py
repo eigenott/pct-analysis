@@ -54,7 +54,7 @@ def main() -> None:
         ])
         .with_columns([
             (pl.col("net_mi") >= 20).alias("is_full"),
-            ((pl.col("section") != "SoCal") & (pl.col("net_mi") < 20)).alias("is_nero"),
+            (pl.col("net_mi") < 20).alias("is_nero"),  # any sub-20 day is a nero
         ])
         .drop("_mid_mi")
         .with_columns([

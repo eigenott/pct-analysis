@@ -51,7 +51,7 @@ print("rendering graphics 31-41...", flush=True)
 top = sorted(d, key=lambda r: -r["net_mi"])[:15]
 plt.figure(figsize=(10, 6))
 y = np.arange(len(top))
-plt.hlines(y, 0, [r["net_mi"] for r in top], color="#BBBBF2", lw=3)
+plt.hlines(y, 0, [r["net_mi"] for r in top], color="#CCCCCC", lw=3)
 plt.scatter([r["net_mi"] for r in top], y, s=81,
             c=[SECC[SECTIONS.index(r["section"])] for r in top],
             edgecolors="white", zorder=3)
@@ -63,7 +63,7 @@ save("31_lollipops.png")
 # 32 — diverging vs personal average -------------------------------------------------------
 avg = mval.mean()
 dev = mval - avg
-cols = [DEEP if v >= 0 else RED for v in dev]
+cols = ["#666666" if v >= 0 else RED for v in dev]
 plt.figure(figsize=(11, 5))
 plt.bar(range(len(d)), dev, color=cols, width=1.0)
 plt.axhline(0, color="black", lw=1)
@@ -71,34 +71,6 @@ plt.xticks(range(0, len(d), 10), [dates[i][5:] for i in range(0, len(d), 10)], r
 plt.ylabel(f"miles above/below my {avg:.1f} mi average")
 plt.title("Above or below average, every day", fontsize=13, weight="bold")
 save("32_diverging.png")
-
-# 33 — sleep debt staircase ---------------------------------------------------------------------
-slp = {r["date"]: r["sleep_hrs"] for r in
-       pl.read_parquet(BASE / "data" / "sleep.parquet").to_dicts()}
-debt = np.cumsum([8 - slp.get(x, 8) for x in dates])
-plt.figure(figsize=(11, 5))
-plt.fill_between(range(len(d)), debt, alpha=0.3, color="#7A7AD6")
-plt.plot(debt, color=DEEP, lw=2)
-plt.xticks(range(0, len(d), 10), [dates[i][5:] for i in range(0, len(d), 10)], rotation=45)
-plt.ylabel("cumulative hours under 8 h/night")
-plt.title("Sleep debt: the bill for 99 nights", fontsize=13, weight="bold")
-save("33_sleep_debt.png")
-
-# 34 — HRV vs pace quadrants -------------------------------------------------------------------------
-hv = {r["date"]: r["hrv"] for r in
-      pl.read_parquet(BASE / "data" / "hrv.parquet").to_dicts()}
-x = np.array([hv.get(r["date"], np.nan) for r in d])
-y = np.array([r["pace_mph"] for r in d])
-m = ~np.isnan(x)
-plt.figure(figsize=(9, 6))
-plt.scatter(x[m], y[m], c=[SECC[SECTIONS.index(r["section"])] for r, k in zip(d, m) if k],
-            s=60, alpha=0.85, edgecolors="white")
-plt.axvline(np.median(x[m]), color="black", alpha=0.3, ls="--")
-plt.axhline(np.median(y[m]), color="black", alpha=0.3, ls="--")
-plt.xlabel("morning HRV (ms)")
-plt.ylabel("pace that day (mph)")
-plt.title("Recovered and fast? HRV vs pace by section", fontsize=13, weight="bold")
-save("34_hrv_pace.png")
 
 # 35 — start time vs miles, section poster ----------------------------------------------------------------
 st = np.array([(int(r["start_local"][:2]) * 60 + int(r["start_local"][3:])) for r in d])
@@ -111,49 +83,64 @@ ok = mval > 0
 b, a = np.polyfit(st[ok], mval[ok], 1)
 xs = np.linspace(st.min(), st.max(), 50)
 plt.plot(xs, a + b * xs, color="black", lw=2, ls="--")
-plt.xlabel("start time (minutes after midnight PT)")
+plt.xlabel("start time (PT)")
+plt.xticks(range(240, 1141, 120), [f"{h}:00" for h in range(4, 20, 2)])
 plt.ylabel("trail miles")
 plt.title("Do early starts make big days?", fontsize=13, weight="bold")
 plt.legend(frameon=False)
 save("35_early_bird_sections.png")
 
-# 36 — elevation × speed density --------------------------------------------------------------------------------
+# 36 — typical speed by grade band ------------------------------------------------------------------
 seg = pl.read_parquet(BASE / "data" / "segments.parquet").filter(
-    pl.col("kept_h5") & (pl.col("dt_s") >= 8) & (pl.col("dt_s") <= 300))
-plt.figure(figsize=(10, 6))
-plt.hist2d(seg["dalt_ft"] / (seg["dist_mi"] * 5280) * 100, seg["mph"],
-           bins=[60, 60], range=[[-30, 30], [0, 8]], cmap="Purples")
-plt.colorbar(label="segments")
-plt.xlabel("grade (%)")
-plt.ylabel("mph")
-plt.title("Where the hiking actually happens: grade × speed density",
-          fontsize=13, weight="bold")
+    pl.col("kept_h5") & (pl.col("dist_mi") * 5280 > 100)
+    & (pl.col("dt_s") >= 8) & (pl.col("dt_s") <= 300)
+    & (pl.col("grade").abs() < 0.3))
+gb = (seg.with_columns(((pl.col("grade") * 100 // 4 * 4)).alias("band"))
+      .group_by("band").agg(pl.col("mph").median().alias("m"),
+                             pl.len().alias("n"))
+      .filter(pl.col("n") > 500).sort("band"))
+plt.figure(figsize=(10, 5.5))
+plt.bar([f"{b:.0f}%" for b in gb["band"]], gb["m"], color="#7A7AD6", edgecolor="white")
+plt.xlabel("grade (4% bands)")
+plt.ylabel("median mph")
+plt.title("Typical speed by steepness", fontsize=13, weight="bold")
 save("36_density.png")
 
 # 37 — weekly boxes -------------------------------------------------------------------------------
 wk = [((dt.date.fromisoformat(x) - dt.date(2026, 4, 25)).days // 7) + 1 for x in dates]
 weeks = sorted(set(wk))
+maj = []
+for w in weeks:
+    secs = [r["section"] for r in d
+            if ((dt.date.fromisoformat(r["date"]) - dt.date(2026, 4, 25)).days // 7) + 1 == w]
+    maj.append(max(set(secs), key=secs.count))
 plt.figure(figsize=(12, 5))
-plt.boxplot([[r["net_mi"] for r in d
-               if ((dt.date.fromisoformat(r["date"]) - dt.date(2026, 4, 25)).days // 7) + 1 == w]
-              for w in weeks],
-             tick_labels=[f"W{w}" for w in weeks], patch_artist=True,
-             boxprops={"facecolor": "#BBBBF2"}, medianprops={"color": DEEP})
+bp = plt.boxplot([[r["net_mi"] for r in d
+                   if ((dt.date.fromisoformat(r["date"]) - dt.date(2026, 4, 25)).days // 7) + 1 == w]
+                  for w in weeks],
+                 tick_labels=[f"W{w}" for w in weeks], patch_artist=True,
+                 boxprops={"facecolor": "white"}, medianprops={"color": "black"})
+for p, s in zip(bp["boxes"], maj):
+    p.set_facecolor(SECC[SECTIONS.index(s)])
+    p.set_alpha(0.85)
 plt.ylabel("daily trail miles")
 plt.title("Week-by-week distributions: fitness arriving around week 8?",
           fontsize=13, weight="bold")
 save("37_weeks.png")
 
-# 38 — ascent vs descent -----------------------------------------------------------------------------
-plt.figure(figsize=(8, 6))
-plt.scatter([r["descent_ft"] for r in d], [r["ascent_ft"] for r in d],
-            c=[SECC[SECTIONS.index(r["section"])] for r in d],
-            s=65, alpha=0.85, edgecolors="white")
-lim = [0, max(r["ascent_ft"] for r in d) * 1.05]
-plt.plot(lim, lim, color="black", alpha=0.4, ls="--", label="what goes up...")
-plt.xlabel("descent (ft)")
-plt.ylabel("ascent (ft)")
-plt.title("What goes up must come down (mostly)", fontsize=13, weight="bold")
+# 38 — total climb vs descent by section ---------------------------------------------------------------
+plt.figure(figsize=(10, 5.5))
+asc = [sum(r["ascent_ft"] for r in d if r["section"] == s) / 5280 for s in SECTIONS]
+des = [sum(r["descent_ft"] for r in d if r["section"] == s) / 5280 for s in SECTIONS]
+x = np.arange(5)
+plt.bar(x - 0.2, asc, width=0.4, color=SECC, label="climbed")
+plt.bar(x + 0.2, des, width=0.4, color="#CCCCCC", label="descended")
+plt.xticks(x, SECTIONS)
+plt.ylabel("miles of vertical (mi)")
+plt.title("Climbed vs descended by section", fontsize=13, weight="bold")
+plt.legend(frameon=False)
+for i, (a, b) in enumerate(zip(asc, des)):
+    plt.text(i - 0.2, a + 0.5, f"{a:.0f}", ha="center", fontsize=9)
 save("38_up_down.png")
 
 # 39 — headlamp miles by week ------------------------------------------------------------------------------
@@ -168,33 +155,49 @@ e = [sum(em.get(x, 0) for x in dates if wkday[x] == w) for w in W]
 l = [sum(lm.get(x, 0) for x in dates if wkday[x] == w) for w in W]
 x = np.arange(len(W))
 plt.figure(figsize=(11, 5))
-plt.bar(x, e, label="before 6am", color="#3D3D8F")
-plt.bar(x, l, bottom=e, label="after 8pm", color="#E69F00")
+plt.bar(x, e, label="before 6am", color="#444444")
+plt.bar(x, l, bottom=e, label="after 8pm", color="#BBBBF2")
 plt.xticks(x, [f"W{w}" for w in W])
 plt.ylabel("miles in the dark")
 plt.title("Headlamp miles by week", fontsize=13, weight="bold")
 plt.legend(frameon=False)
 save("39_headlamp.png")
 
-# 40 — do zeros work? day-after-zero vs normal ----------------------------------------------------------------------
+# 40 — do rest days pay off? overall + by section -----------------------------------------------------
 have = set(dates)
 d0, d1 = dt.date(2026, 4, 25), dt.date(2026, 8, 11)
 zeros = [str(d0 + dt.timedelta(days=i)) for i in range((d1 - d0).days + 1)
          if str(d0 + dt.timedelta(days=i)) not in have]
-after = set()
+after_zero, after_nero = set(), set()
 for z in zeros:
     nxt = str(dt.date.fromisoformat(z) + dt.timedelta(days=1))
     if nxt in have:
-        after.add(nxt)
-a = [r["net_mi"] for r in d if r["date"] in after]
-b = [r["net_mi"] for r in d if r["date"] not in after]
-plt.figure(figsize=(8, 5))
-plt.bar(["day after zero\n(n=%d)" % len(a), "normal day\n(n=%d)" % len(b)],
-        [np.mean(a), np.mean(b)], color=["#E69F00", "#7A7AD6"], width=0.55)
-plt.ylabel("mean trail miles")
-plt.title("Do rest days pay off the next morning?", fontsize=13, weight="bold")
-for i, v in enumerate([np.mean(a), np.mean(b)]):
-    plt.text(i, v + 0.4, f"{v:.1f} mi", ha="center", fontsize=11)
+        after_zero.add(nxt)
+for r in [x for x in d if x["is_nero"]]:
+    nxt = str(dt.date.fromisoformat(r["date"]) + dt.timedelta(days=1))
+    if nxt in have:
+        after_nero.add(nxt)
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+groups = [("normal day", [r for r in d if r["date"] not in after_zero | after_nero]),
+          ("after zero", [r for r in d if r["date"] in after_zero]),
+          ("after nero", [r for r in d if r["date"] in after_nero])]
+ax1.bar([g[0] + f"\n(n={len(g[1])})" for g in groups],
+        [np.mean([r["net_mi"] for r in g[1]]) for g in groups],
+        color=["#666666", "#E69F00", "#7A7AD6"], width=0.6)
+ax1.set_ylabel("mean trail miles")
+ax1.set_title("Do rest days pay off?", fontsize=12, weight="bold")
+x = np.arange(5)
+w = 0.35
+norm = [np.mean([r["net_mi"] for r in d if r["section"] == s
+                 and r["date"] not in after_zero | after_nero]) for s in SECTIONS]
+rest = [np.mean([r["net_mi"] for r in d if r["section"] == s
+                 and r["date"] in after_zero | after_nero]) for s in SECTIONS]
+ax2.bar(x - w / 2, norm, width=w, label="normal", color="#666666")
+ax2.bar(x + w / 2, [0 if np.isnan(v) else v for v in rest], width=w,
+        label="after zero/nero", color="#E69F00")
+ax2.set_xticks(x, SECTIONS)
+ax2.set_title("...and does it depend on section?", fontsize=12, weight="bold")
+ax2.legend(frameon=False)
 save("40_zeros_work.png")
 
 # 41 — speed map: centerline colored by median pace per trail mile ---------------------------------------------------------
@@ -235,7 +238,8 @@ for ax, s, (lo_b, hi_b) in zip(axes, SECTIONS, zip(BOUNDS, BOUNDS[1:])):
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_title(s, fontsize=11, weight="bold")
-fig.colorbar(sc, ax=list(axes), shrink=0.8, label="median pace (mph) per trail mile")
+fig.colorbar(sc, ax=list(axes), orientation="horizontal", fraction=0.05,
+             pad=0.08, label="median pace (mph) per trail mile")
 fig.suptitle("How fast is every mile of the PCT?", fontsize=14, weight="bold")
 save("41_speed_map.png")
 
