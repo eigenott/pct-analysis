@@ -145,6 +145,78 @@ def _(alt, daily, mo, pl):
 
 
 @app.cell
+def _(alt, mo, pl):
+    mo.md("## Steepness vs speed — how much do climbs cost? (kept segments, >100 ft)")
+    gs = (
+        pl.scan_parquet("data/segments.parquet")
+        .filter(pl.col("kept_h5") & (pl.col("dist_mi") * 5280 > 100) & (pl.col("dt_s") <= 120))
+        .filter(pl.col("grade").abs() < 0.4)
+        .with_columns(((pl.col("grade") * 50).round() * 2).alias("grade_pct"))
+        .group_by("grade_pct")
+        .agg(pl.col("mph").median().alias("med_mph"), pl.len().alias("n"))
+        .filter(pl.col("n") > 50)
+        .collect().to_pandas()
+    )
+    alt.Chart(gs).mark_line(point=True, color="#7A7AD6").encode(
+        x=alt.X("grade_pct:Q", title="grade (%)"),
+        y=alt.Y("med_mph:Q", title="median mph", scale=alt.Scale(zero=False)),
+        tooltip=["grade_pct", "med_mph", "n"],
+    ).properties(height=260)
+    return
+
+
+@app.cell
+def _(alt, mo, pl):
+    mo.md("## Speed by time of day — siesta hours? (Pacific, kept segments)")
+    hh = (
+        pl.scan_parquet("data/segments.parquet")
+        .filter(pl.col("kept_h5") & (pl.col("dt_s") <= 120))
+        .group_by("hour_local")
+        .agg(pl.col("mph").median().alias("med_mph"), pl.len().alias("n"))
+        .collect().to_pandas()
+    )
+    alt.Chart(hh).mark_bar(color="#BBBBF2").encode(
+        x=alt.X("hour_local:O", title="hour (PT)"),
+        y=alt.Y("med_mph:Q", title="median mph", scale=alt.Scale(zero=False)),
+        tooltip=["hour_local", "med_mph", "n"],
+    ).properties(height=260)
+    return
+
+
+@app.cell
+def _(alt, daily, mo, pl):
+    mo.md("## Elevation envelope — highest/lowest fix each day + camp line")
+    eb = (
+        pl.scan_parquet("data/tracks.parquet")
+        .filter(pl.col("altitude_m").is_not_null())
+        .group_by("date")
+        .agg((pl.col("altitude_m").min() * 3.28084).alias("lo_ft"),
+             (pl.col("altitude_m").max() * 3.28084).alias("hi_ft"))
+        .collect()
+        .with_columns(pl.col("date").str.to_datetime().alias("day"))
+        .to_pandas()
+    )
+    camp = daily.select(["date", "camp_end_ft"]).with_columns(
+        pl.col("date").str.to_datetime().alias("day")).to_pandas()
+    band = alt.Chart(eb).mark_area(color="#BBBBF2", opacity=0.6).encode(
+        x=alt.X("day:T", title="date"),
+        y=alt.Y("lo_ft:Q", title="elevation (ft)"),
+        y2="hi_ft:Q",
+        tooltip=["date", "lo_ft", "hi_ft"],
+    )
+    (band + alt.Chart(camp).mark_line(color="#7A7AD6").encode(x="day:T", y="camp_end_ft:Q")).properties(height=260)
+    return
+
+
+@app.cell
+def _(mo, pl):
+    mo.md("## Confirmed timeline — annotate the changepoints against this")
+    ann = pl.read_csv("annotations/events.csv")
+    mo.ui.table(ann)
+    return (ann,)
+
+
+@app.cell
 def _(daily, mo):
     hi = daily.sort("camp_end_ft", descending=True).row(0, named=True)
     lo = daily.sort("camp_end_ft").row(0, named=True)

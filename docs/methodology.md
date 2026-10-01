@@ -112,3 +112,13 @@ three skips above.
 - InReach + FarOut integration; alternate-day mileage method
   (route vs GPS-sum per flagged day).
 - The `unknown/` bucket and pre/postpct files are unexamined beyond sorting.
+
+## 7. Annotations & per-segment table
+
+- `annotations/events.csv` (versioned): hiker-confirmed timeline — Whitney
+  06-06, SHR split 06-14 / Truckee rejoin 06-22, 67-mi catch-up skip 06-23,
+  Sisters fire skip 07-24, Rainy Pass terminus 08-11. Tentative rows carry
+  `status=tentative`. Private context never enters this file or the report.
+- `scripts/build_segments.py` → `data/segments.parquet`: one row per
+  in-file fix pair (dist, dt, mph, dAlt, grade, H5 flag, local hour) —
+  powers grade-vs-speed and time-of-day analyses in the report.
