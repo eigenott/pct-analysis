@@ -42,7 +42,7 @@ def _(alt, daily, mo):
     mo.md("## Daily mileage (raw, UltraTrac jumps included)")
     mileage = (
         alt.Chart(daily.to_pandas())
-        .mark_bar()
+        .mark_bar(color="#BBBBF2")
         .encode(
             x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
             y=alt.Y("miles:Q", title="miles"),
@@ -77,7 +77,7 @@ def _(alt, date_picker, pl):
         .with_columns((pl.col("altitude_m") * 3.28084).alias("altitude_ft"))
         .to_pandas()
     )
-    alt.Chart(day).mark_line().encode(
+    alt.Chart(day).mark_line(color="#7A7AD6").encode(
         x=alt.X("timestamp_utc:T", title=f"{date_picker.value} (UTC)"),
         y=alt.Y("altitude_ft:Q", title="altitude (ft)", scale=alt.Scale(zero=False)),
         tooltip=["timestamp_utc", "altitude_ft", "heart_rate"],
@@ -98,7 +98,7 @@ def _(alt, mo, pl):
         color=alt.Color(
             "component:N",
             scale=alt.Scale(
-                domain=["corrected_mi", "cut_mi"], range=["steelblue", "firebrick"]
+                domain=["corrected_mi", "cut_mi"], range=["#BBBBF2", "firebrick"]
             ),
             legend=None,
         ),
@@ -113,7 +113,7 @@ def _(alt, mo, pl):
     route = pl.read_parquet("data/daily_route.parquet")
     prog = (
         alt.Chart(route.to_pandas())
-        .mark_line(point=True)
+        .mark_line(point=True, color="#7A7AD6")
         .encode(
             x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
             y=alt.Y("route_max_mi:Q", title="trail mile"),
