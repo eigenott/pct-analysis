@@ -194,7 +194,7 @@ rest = [np.mean([r["net_mi"] for r in d if r["section"] == s
                  and r["date"] in after_zero | after_nero]) for s in SECTIONS]
 ax2.bar(x - w / 2, norm, width=w, label="normal", color="#666666")
 ax2.bar(x + w / 2, [0 if np.isnan(v) else v for v in rest], width=w,
-        label="after zero/nero", color="#E69F00")
+        label="after zero/nero", color=SECC)
 ax2.set_xticks(x, SECTIONS)
 ax2.set_title("...and does it depend on section?", fontsize=12, weight="bold")
 ax2.legend(frameon=False)

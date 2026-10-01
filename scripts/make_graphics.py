@@ -225,13 +225,12 @@ plt.ylabel("heart rate (bpm, every recorded fix)")
 plt.title("Heart rate by section", fontsize=13, weight="bold")
 save("12_heartbeat.png")
 
-# 15 — cumulative climbing over the hours of the 15 biggest climbing days ------------
+# 15 — cumulative climbing over the hours of the 10 biggest climbing days ------------
 trk = pl.read_parquet(BASE / "data" / "tracks.parquet").filter(
     pl.col("altitude_m").is_not_null()).sort(["date", "timestamp_utc"])
-big15 = sorted([r for r in d if r["is_full"]],
-               key=lambda r: -r["ascent_ft"])[:15]
-plt.figure(figsize=(11, 5.5))
-for r in big15:
+cands = sorted([r for r in d if r["is_full"]], key=lambda r: -r["ascent_ft"])[:15]
+big10 = []
+for r in cands:
     day = trk.filter(pl.col("date") == r["date"])
     if day.height < 10:
         continue
@@ -239,11 +238,21 @@ for r in big15:
     ts = np.array([x.timestamp() for x in day["timestamp_utc"].to_list()])
     hrs = (ts - ts[0]) / 3600
     climb = np.concatenate([[0], np.cumsum(np.clip(np.diff(alt), 0, None))])
-    plt.plot(hrs, climb, color=SECC[SECTIONS.index(r["section"])], alpha=0.6, lw=1.5)
+    best, cur0 = 0.0, 0  # longest stretch gaining <100 ft/h (dead watch, not hiking)
+    for i in range(1, len(hrs)):
+        if climb[i] - climb[cur0] > 100 * (hrs[i] - hrs[cur0]):
+            cur0 = i
+        best = max(best, hrs[i] - hrs[cur0])
+    if best <= 4:
+        big10.append((r, hrs, climb))
+big10 = big10[:10]
+plt.figure(figsize=(11, 5.5))
+for r, hrs, climb in big10:
+    plt.plot(hrs, climb, color=SECC[SECTIONS.index(r["section"])], alpha=0.75, lw=2.5)
 plt.xlim(0, 15)
 plt.xlabel("hours since first fix of the day")
 plt.ylabel("cumulative feet climbed that day")
-plt.title("How the 15 biggest climbing days accumulated", fontsize=13, weight="bold")
+plt.title("How the 10 biggest climbing days accumulated", fontsize=13, weight="bold")
 save("15_climbing_days.png")
 
 print("done → graphics/", flush=True)
