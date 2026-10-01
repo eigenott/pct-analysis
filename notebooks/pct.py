@@ -227,7 +227,17 @@ def _(VERDICTS, fig, mo, picker):
         kind="success",
         on_click=lambda _: _save(jid, "legit"),
     )
-    mo.vstack([fig, mo.hstack([yes_btn, no_btn])])
+    status = (
+        mo.md(f"Verdicts saved so far: **{sum(1 for _ in open(VERDICTS)) - 1}**")
+        if VERDICTS.exists()
+        else mo.md("No verdicts yet — your calls will appear here.")
+    )
+    mo.vstack([fig, mo.hstack([yes_btn, no_btn]), status])
+    return
+
+
+@app.cell
+def _():
     return
 
 
