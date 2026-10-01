@@ -183,7 +183,7 @@ ax1.bar([g[0] + f"\n(n={len(g[1])})" for g in groups],
         [np.mean([r["net_mi"] for r in g[1]]) for g in groups],
         color=["#E69F00", "#999999", "#CCCCCC"], width=0.6)
 ax1.set_ylabel("mean trail miles")
-ax1.set_title("Do rest days pay off?", fontsize=12, weight="bold")
+ax1.set_title("Daily mileage following a zero/nero", fontsize=12, weight="bold")
 x = np.arange(5)
 w = 0.35
 norm = [np.mean([r["net_mi"] for r in d if r["section"] == s
@@ -194,7 +194,7 @@ ax2.bar(x - w / 2, norm, width=w, label="normal", color=SECC)
 ax2.bar(x + w / 2, [0 if np.isnan(v) else v for v in rest], width=w,
         label="after zero/nero", color="#999999")
 ax2.set_xticks(x, SECTIONS)
-ax2.set_title("...and does it depend on section?", fontsize=12, weight="bold")
+ax2.set_title("Daily mileage following a zero/nero by section", fontsize=12, weight="bold")
 ax2.legend(frameon=False)
 save("40_zeros_work.png")
 
