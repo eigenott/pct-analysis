@@ -108,9 +108,11 @@ def _(mo):
 
     Segments faster than 12 m/s (27 mph — impossible on foot) were
     grouped into events by `scripts/flag_jumps.py`. The top 90 events
-    (≥0.5 mi… er, ≥0.5 km of bogus distance) are queued below — biggest
-    first. For each: check the map, then verdict.
-    Your calls are appended to `data/jump_verdicts.csv` (scripts never
+    (≥0.5 km of bogus distance) are queued below — biggest first.
+    For each: check the map, click ✅ or ❌, and you'll auto-advance
+    to the next undecided candidate. ◀ Prev goes back to re-vote
+    (re-voting overwrites your earlier call).
+    Your calls live in `data/jump_verdicts.csv` (scripts never
     touch that file, so re-running the detector won't lose your work).
     """)
     return
@@ -131,36 +133,47 @@ def _(mo, pl):
     queue = cand.join(
         decided.select("jump_id"), on="jump_id", how="anti"
     ).filter(pl.col("jump_km") >= REVIEW_MIN_KM)
-    mo.md(
+    review_ids = (
+        cand.filter(pl.col("jump_km") >= REVIEW_MIN_KM)
+        .sort("rank")["jump_id"]
+        .to_list()
+    )  # fixed order — stable even as verdicts accumulate
+    status = (
         f"**Progress:** {decided.height} decided, "
-        f"{queue.height} left in queue (≥{REVIEW_MIN_KM} km), "
-        f"{cand.height - decided.height - queue.height} small fry deferred"
+        f"{queue.height} left in queue (≥{REVIEW_MIN_KM} km)"
     )
-    return VERDICTS, cand, queue
+    mo.md(status + (" — **all reviewed! 🎉**" if queue.height == 0 else ""))
+    return VERDICTS, cand, decided, queue, review_ids
 
 
 @app.cell
-def _(mo, queue):
-    options = {
-        f"#{r['rank']} {r['date']} — {r['jump_km']:.2f} km, "
-        f"max {r['max_speed_m_s']:.0f} m/s": r["jump_id"]
-        for r in queue.iter_rows(named=True)
-    }
-    picker = mo.ui.dropdown(
-        options=options or {"(queue empty — all reviewed!)": -1},
-        value=next(iter(options)) if options else "(queue empty — all reviewed!)",
+def _(decided, mo, review_ids):
+    get_pos, set_pos = mo.state(0)
+    decided_ids = set(decided["jump_id"].to_list()) if decided.height else set()
+    n = len(review_ids)
+    pos = min(max(get_pos(), 0), max(n - 1, 0)) if n else 0
+    cur_id = review_ids[pos] if n else -1
+    prev_btn = mo.ui.button(
+        label="◀ Prev", on_click=lambda _: set_pos(max(0, get_pos() - 1))
     )
-    picker
-    return (picker,)
+    next_btn = mo.ui.button(
+        label="Next ▶",
+        on_click=lambda _: set_pos(min(max(n - 1, 0), get_pos() + 1)),
+    )
+    mo.hstack(
+        [prev_btn, mo.md(f"**Candidate {pos + 1} of {n}**"), next_btn],
+        justify="space-between",
+    )
+    return cur_id, get_pos, pos, set_pos
 
 
 @app.cell
-def _(cand, mo, picker, pl):
+def _(cand, cur_id, decided, mo, pl):
     import plotly.graph_objects as go
 
-    if picker.value is None or picker.value == -1:
+    if cur_id == -1:
         mo.stop(True, mo.md("Queue empty — all reviewed! 🎉"))
-    sel = cand.filter(pl.col("jump_id") == picker.value).row(0, named=True)
+    sel = cand.filter(pl.col("jump_id") == cur_id).row(0, named=True)
     window = (
         pl.scan_parquet("data/tracks.parquet")
         .filter(
@@ -204,35 +217,50 @@ def _(cand, mo, picker, pl):
 
 
 @app.cell
-def _(VERDICTS, fig, mo, picker):
+def _(VERDICTS, cur_id, decided, fig, get_pos, mo, pl, pos, review_ids, set_pos):
     import csv
     from datetime import datetime, timezone
 
     def _save(jump_id, verdict):
-        new = not VERDICTS.exists()
-        with open(VERDICTS, "a", newline="") as f:
+        rows = []
+        if VERDICTS.exists():
+            with open(VERDICTS, newline="") as f:
+                r = list(csv.reader(f))
+            rows = [x for x in r[1:] if x and x[0] != str(jump_id)]
+        with open(VERDICTS, "w", newline="") as f:
             w = csv.writer(f)
-            if new:
-                w.writerow(["jump_id", "verdict", "decided_at"])
-            w.writerow([jump_id, verdict, datetime.now(timezone.utc).isoformat()])
+            w.writerow(["jump_id", "verdict", "decided_at"])
+            w.writerows(rows)
+            w.writerow(
+                [jump_id, verdict, datetime.now(timezone.utc).isoformat()]
+            )
 
-    jid = picker.value
+    voted_ids = set(decided["jump_id"].to_list()) if decided.height else set()
+    nxt = pos + 1
+    while nxt < len(review_ids) and review_ids[nxt] in voted_ids:
+        nxt += 1  # land on the next undecided candidate
+    nxt = min(nxt, len(review_ids) - 1)
+
     yes_btn = mo.ui.button(
         label="✅ Yes — GPS jump, cut it",
         kind="danger",
-        on_click=lambda _: _save(jid, "jump"),
+        on_click=lambda _: (_save(cur_id, "jump"), set_pos(nxt)),
     )
     no_btn = mo.ui.button(
         label="❌ No — legit (hitch, etc.), keep it",
         kind="success",
-        on_click=lambda _: _save(jid, "legit"),
+        on_click=lambda _: (_save(cur_id, "legit"), set_pos(nxt)),
     )
-    status = (
-        mo.md(f"Verdicts saved so far: **{sum(1 for _ in open(VERDICTS)) - 1}**")
-        if VERDICTS.exists()
-        else mo.md("No verdicts yet — your calls will appear here.")
+    prior = decided.filter(pl.col("jump_id") == cur_id)
+    vote_status = (
+        mo.md(f"Your call: **{prior.row(0, named=True)['verdict']}** (click again to change)")
+        if prior.height
+        else mo.md("Not yet reviewed — your call will appear here.")
     )
-    mo.vstack([fig, mo.hstack([yes_btn, no_btn]), status])
+    mo.vstack(
+        [fig, mo.hstack([yes_btn, no_btn], gap=1, justify="center"), vote_status],
+        gap=1,
+    )
     return
 
 
