@@ -82,6 +82,15 @@ Applied by `apply_cuts.py` → `daily_corrected.parquet`
 (`raw_watch_mi`, `gps_raw_mi`, `cut_mi`, `corrected_mi` per date).
 07-21 corrects 43→41.0 mi: the monster day survives, as designed.
 
+**Jitter audit (flat-terrain "speeding").** 18,521 segments read >6 mph on
+<2% grades (533 mi!) — but median dt is **2 s** at 54 ft: 1–2 s timestamp
+granularity plus position noise, not cars or trail running (the longest
+consecutive fast run is 51 segments of 15–260 mph garbage on 06-07).
+On flats, altitude barely changes so noisy segments pile into the 0%-grade
+bin (median 14 mph there) — the grade-vs-speed chart therefore requires
+fixes ≥8 s apart, which restores a sane 3.6 mph. No vehicle-like sustained
+runs exist anywhere (see car analysis above).
+
 ## 5. Route projection (`build_route.py`, `project_tracks.py`)
 
 PCTA centerline GPX: 29 ordered section tracks, joints ≤ 14 ft, 1,235,590

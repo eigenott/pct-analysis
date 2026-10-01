@@ -31,6 +31,8 @@ def _(mo, pl):
     daily = pl.read_parquet("data/daily_report.parquet").sort("date")
     odd = pl.read_parquet("data/oddities.parquet").sort("date")
     markers = pl.read_parquet("data/route_markers.parquet").sort("mile")
+    SEC_ORDER = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
+    SEC_COLORS = ["#BBBBF2", "#9D9DE0", "#7A7AD6", "#5A5AB8", "#3D3D8F"]
     mo.md(
         f"**{daily['net_mi'].sum():.1f} trail miles** · "
         f"{daily.height} hiking days · "
@@ -39,7 +41,7 @@ def _(mo, pl):
         f"**{int(daily['ascent_ft'].sum()):,} ft** climbed · "
         f"{daily['pace_mph'].mean():.1f} mph lifetime average"
     )
-    return daily, markers, odd
+    return daily, markers, odd, SEC_ORDER, SEC_COLORS
 
 
 @app.cell
@@ -147,10 +149,11 @@ def _(alt, daily, mo, pl):
 
 @app.cell
 def _(alt, mo, pl):
-    mo.md("## Steepness vs speed — how much do climbs cost? (kept segments, >100 ft)")
+    mo.md("## Steepness vs speed — how much do climbs cost? (kept segments, >100 ft, fixes 8 s apart — shorter gaps are timestamp noise)")
     gs = (
         pl.scan_parquet("data/segments.parquet")
-        .filter(pl.col("kept_h5") & (pl.col("dist_mi") * 5280 > 100) & (pl.col("dt_s") <= 120))
+        .filter(pl.col("kept_h5") & (pl.col("dist_mi") * 5280 > 100)
+                & (pl.col("dt_s") >= 8) & (pl.col("dt_s") <= 120))
         .filter(pl.col("grade").abs() < 0.4)
         .with_columns(((pl.col("grade") * 50).round() * 2).alias("grade_pct"))
         .group_by("grade_pct")
@@ -168,10 +171,11 @@ def _(alt, mo, pl):
 
 @app.cell
 def _(alt, mo, pl):
-    mo.md("## Speed by time of day — siesta hours? (Pacific, kept segments)")
+    mo.md("## Speed by time of day — siesta hours? (Pacific, kept segments, 4am–11pm)")
     hh = (
         pl.scan_parquet("data/segments.parquet")
-        .filter(pl.col("kept_h5") & (pl.col("dt_s") <= 120))
+        .filter(pl.col("kept_h5") & (pl.col("dt_s") <= 120)
+                & pl.col("hour_local").is_between(4, 23))
         .group_by("hour_local")
         .agg(pl.col("mph").median().alias("med_mph"), pl.len().alias("n"))
         .collect().to_pandas()
@@ -270,22 +274,22 @@ def _(daily, mo, pl):
 
 
 @app.cell
-def _(alt, daily, mo, pl):
+def _(SEC_COLORS, SEC_ORDER, alt, daily, mo, pl):
     mo.md("## Full days only (≥25 mi) — pace by section, zeros and neros excluded")
     fd = daily.filter(pl.col("is_full")).with_columns(
         pl.col("date").str.to_datetime().alias("day"))
-    sec_order = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
     pace_sec = (
         fd.group_by("section")
         .agg(pl.col("pace_mph").median().round(2).alias("med_pace"),
              pl.len().alias("n"))
-        .with_columns(pl.col("section").cast(pl.Enum(sec_order)).alias("s"))
-        .sort("s").drop("s").to_pandas()
+        .sort("med_pace", descending=True).to_pandas()
     )
-    alt.Chart(pace_sec).mark_bar(color="#7A7AD6").encode(
-        x=alt.X("section:N", title=None, sort=sec_order),
+    alt.Chart(pace_sec).mark_bar().encode(
+        x=alt.X("section:N", title=None, sort=SEC_ORDER),
         y=alt.Y("med_pace:Q", title="median pace, full days (mph)",
                 scale=alt.Scale(zero=False)),
+        color=alt.Color("section:N", legend=None,
+                        scale=alt.Scale(domain=SEC_ORDER, range=SEC_COLORS)),
         tooltip=["section", "med_pace", "n"],
     ).properties(width=800, height=240)
     return
@@ -293,10 +297,11 @@ def _(alt, daily, mo, pl):
 
 @app.cell
 def _(alt, daily, mo, pl):
-    mo.md("## Heat — median speed by hour and section (kept segments)")
+    mo.md("## Heat — median speed by hour and section (kept segments, 4am–11pm PT)")
     sec_speed = (
         pl.scan_parquet("data/segments.parquet")
-        .filter(pl.col("kept_h5") & (pl.col("dt_s") <= 120))
+        .filter(pl.col("kept_h5") & (pl.col("dt_s") <= 120)
+                & pl.col("hour_local").is_between(4, 23))
         .collect()
         .join(daily.select(["date", "section"]), on="date", how="left")
         .group_by(["hour_local", "section"])
@@ -333,14 +338,12 @@ def _(alt, mo, pl):
 
 
 @app.cell
-def _(alt, daily, mo):
+def _(SEC_COLORS, SEC_ORDER, alt, daily, mo):
     mo.md("## 2D scatters — what actually drives a big day?")
-    order2d = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
     base = alt.Chart(daily.to_pandas()).mark_circle(size=60).encode(
         color=alt.Color("section:N", legend=None,
-                        scale=alt.Scale(domain=order2d,
-                                        range=["#BBBBF2", "#9D9DE0", "#7A7AD6",
-                                               "#5A5AB8", "#3D3D8F"])),
+                        scale=alt.Scale(domain=SEC_ORDER,
+                                        range=SEC_COLORS)),
         tooltip=["date", "section", "net_mi", "ascent_ft", "pace_mph",
                  "start_local", "avg_hr"],
     )
@@ -353,12 +356,13 @@ def _(alt, daily, mo):
 
 
 @app.cell
-def _(daily, mo, pl):
+def _(SEC_COLORS, daily, mo, pl):
     mo.md("## 3D — big-day anatomy: climb × sleep × miles (color = section)")
     import plotly.express as px
     slp3 = pl.read_parquet("data/sleep.parquet").select(["date", "sleep_hrs"])
     d3 = daily.join(slp3, on="date", how="left").to_pandas()
     px.scatter_3d(d3, x="ascent_ft", y="sleep_hrs", z="net_mi", color="section",
+                  color_discrete_sequence=SEC_COLORS,
                   hover_name="date",
                   labels={"ascent_ft": "climb (ft)", "sleep_hrs": "sleep (h)",
                           "net_mi": "miles"},
@@ -404,9 +408,10 @@ def _(brk, mo):
 
 @app.cell
 def _(alt, mo, pl):
-    mo.md("## Fastest hour — median miles per clock hour, full days only")
+    mo.md("## Fastest hour — median miles per clock hour, full days only (4am–11pm)")
     hrly = (
         pl.read_parquet("data/hourly.parquet")
+        .filter(pl.col("hour_local").is_between(4, 23))
         .join(pl.read_parquet("data/daily_report.parquet")
               .select(["date", "is_full"]), on="date", how="left")
         .filter(pl.col("is_full"))
@@ -437,19 +442,17 @@ def _(alt, mo, pl):
 
 
 @app.cell
-def _(alt, daily, mo, pl):
+def _(SEC_COLORS, SEC_ORDER, alt, daily, mo, pl):
     mo.md("## Sleep vs next-day miles — do big sleeps make big days?")
     js = daily.select(["date", "net_mi", "section"]).join(
         pl.read_parquet("data/sleep.parquet").select(["date", "sleep_hrs"]),
         on="date", how="left").to_pandas()
-    order_js = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
     (alt.Chart(js).mark_circle(size=60).encode(
         x=alt.X("sleep_hrs:Q", title="sleep that morning (h)"),
         y=alt.Y("net_mi:Q", title="trail miles that day"),
         color=alt.Color("section:N", legend=None,
-                        scale=alt.Scale(domain=order_js,
-                                        range=["#BBBBF2", "#9D9DE0", "#7A7AD6",
-                                               "#5A5AB8", "#3D3D8F"])),
+                        scale=alt.Scale(domain=SEC_ORDER,
+                                        range=SEC_COLORS)),
         tooltip=["date", "sleep_hrs", "net_mi"],
     ) + alt.Chart(js).transform_regression("sleep_hrs", "net_mi").mark_line(
         color="firebrick").encode(x="sleep_hrs:Q", y="net_mi:Q")
