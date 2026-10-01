@@ -247,7 +247,13 @@ mid_mi = ((daily.select(["date", "net_mi", "section", "route_min_mi", "route_max
 cl = pl.read_parquet(BASE / "data" / "route_centerline.parquet")
 cmi = cl["route_mi"].to_numpy()
 cla, clo = cl["lat"].to_numpy(), cl["lon"].to_numpy()
-fig, axes = plt.subplots(1, 5, figsize=(13, 6))
+fig, axes = plt.subplots(1, 5, figsize=(13, 5.6),
+                           gridspec_kw={"width_ratios": [
+                               # ground-true panel widths: lon span × cos(lat) / lat span
+                               (np.ptp(clo[(cmi >= lo_b) & (cmi < hi_b)])
+                                * np.cos(np.radians(40))
+                                / np.ptp(cla[(cmi >= lo_b) & (cmi < hi_b)]))
+                               for lo_b, hi_b in zip(BOUNDS, BOUNDS[1:])]})
 for ax, s, col, (lo_b, hi_b) in zip(axes, SECTIONS, SECC, zip(BOUNDS, BOUNDS[1:])):
     m = (cmi >= lo_b) & (cmi < hi_b)
     ax.scatter(clo[m][::15], cla[m][::15], c="#DDDDDD", s=3, zorder=1)
@@ -256,6 +262,9 @@ for ax, s, col, (lo_b, hi_b) in zip(axes, SECTIONS, SECC, zip(BOUNDS, BOUNDS[1:]
     ax.scatter(clo[at], cla[at],
                s=[r["net_mi"] * 5 for r in dd], color=col, edgecolors="white",
                linewidths=0.8, alpha=0.9, zorder=3)
+    pad = 0.06
+    ax.set_xlim(clo[m].min() - pad, clo[m].max() + pad)
+    ax.set_ylim(cla[m].min() - pad, cla[m].max() + pad)
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])

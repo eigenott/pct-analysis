@@ -260,6 +260,9 @@ big10 = big10[:10]
 plt.figure(figsize=(11, 5.5))
 for r, hrs, climb in big10:
     plt.plot(hrs, climb, color=SECC[SECTIONS.index(r["section"])], alpha=0.75, lw=2.5)
+    plt.text(hrs[-1] + 0.15, climb[-1], r["date"][5:],
+             va="center", fontsize=9,
+             color=SECC[SECTIONS.index(r["section"])])
 plt.xlim(0, 15)
 plt.xlabel("hours since first fix of the day")
 plt.ylabel("cumulative feet climbed that day")
