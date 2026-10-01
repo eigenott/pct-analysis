@@ -439,7 +439,7 @@ for ax, s, (lo_b, hi_b) in zip(axes, SECTIONS, zip(BOUNDS, BOUNDS[1:])):
         i = int(np.searchsorted(cmi, t["mile"]))
         h = stay[t["name"]]
         col = _secc(t["mile"]) if h > 0.5 else "#CCCCCC"
-        ax.scatter([clo[i]], [cla[i]], c=col, s=(14 + min(h, 80) * 2.2) if h > 0.5 else 10,
+        ax.scatter([clo[i]], [cla[i]], c=col, s=(22 + min(h, 80) * 3.2) if h > 0.5 else 16,
                    zorder=3, edgecolors="white", linewidths=0.8)
         if h > 0.5:
             lab = f"{t['name']} {h:.0f}h" if h >= 10 else t["name"]
@@ -455,8 +455,7 @@ for ax, s, (lo_b, hi_b) in zip(axes, SECTIONS, zip(BOUNDS, BOUNDS[1:])):
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_title(s, fontsize=11, weight="bold")
-fig.suptitle("Time in resupply towns, from gaps between recordings",
-             fontsize=14, weight="bold")
+fig.suptitle("Time in town", fontsize=14, weight="bold")
 save("63_town_stays.png")
 
 print("done → graphics/", flush=True)
