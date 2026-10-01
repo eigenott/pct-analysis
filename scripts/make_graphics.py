@@ -163,19 +163,24 @@ plt.ylabel("mean trail miles that day")
 plt.title("Sleep duration vs daily miles (binned means)", fontsize=13, weight="bold")
 save("06_sleep_vs_miles.png")
 
-# 7 — start hour vs miles, binned -------------------------------------------------------
+# 7 — start hour vs miles, stacked full/nero --------------------------------------------------
 st = np.array([(int(r["start_local"][:2]) * 60 + int(r["start_local"][3:])) // 60 for r in d])
 ym = np.array([r["net_mi"] for r in d])
+fl = np.array([r["is_full"] for r in d])
 hs = sorted(set(st))
-means = [ym[st == h].mean() for h in hs]
+full_sum = np.array([ym[(st == h) & fl].sum() for h in hs])
+nero_sum = np.array([ym[(st == h) & ~fl].sum() for h in hs])
 ns = [int((st == h).sum()) for h in hs]
-plt.figure(figsize=(10, 5))
-plt.bar([f"{h}:00" for h in hs], means, color=BRAND, edgecolor="white")
-for x, m, n in zip([f"{h}:00" for h in hs], means, ns):
-    plt.text(x, m + 0.3, f"n={n}", ha="center", fontsize=9)
+plt.figure(figsize=(11, 5.5))
+plt.bar([f"{h}:00" for h in hs], full_sum, color="#BBBBF2", edgecolor="white", label="full days")
+plt.bar([f"{h}:00" for h in hs], nero_sum, bottom=full_sum, color="#D55E00", edgecolor="white",
+        label="nero days")
+for x, t, n in zip([f"{h}:00" for h in hs], full_sum + nero_sum, ns):
+    plt.text(x, t + 1.5, f"n={n}", ha="center", fontsize=9)
 plt.xlabel("start hour (PT)")
-plt.ylabel("mean trail miles")
-plt.title("Start hour vs daily miles", fontsize=13, weight="bold")
+plt.ylabel("total trail miles started in that hour")
+plt.title("Start hour vs daily miles, full and nero days stacked", fontsize=13, weight="bold")
+plt.legend(frameon=False)
 save("07_early_bird.png")
 
 # 8 — daily miles histogram, stacked by section ----------------------------------------
