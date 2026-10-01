@@ -1,0 +1,276 @@
+import marimo
+
+__generated_with = "0.25.0"
+app = marimo.App()
+
+
+@app.cell
+def _():
+    import marimo as mo
+    import polars as pl
+    import altair as alt
+    import numpy as np
+    return alt, mo, np, pl
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    # Walking 2,443 miles: a data story from the PCT
+
+    *A data scientist turned thru-hiker, learning polars + marimo on
+    99 days of Garmin tracks (Apr 25 – Aug 11, 2026, Campo → Rainy Pass).
+    Broad stuff first, weird stuff at the bottom — the weird stuff is the point.*
+    """)
+    return
+
+
+@app.cell
+def _(mo, pl):
+    daily = pl.read_parquet("data/daily_report.parquet").sort("date")
+    odd = pl.read_parquet("data/oddities.parquet").sort("date")
+    markers = pl.read_parquet("data/route_markers.parquet").sort("mile")
+    mo.md(
+        f"**{daily['net_mi'].sum():.1f} trail miles** · "
+        f"{daily.height} hiking days · "
+        f"**{daily['net_mi'].max():.1f} mi** biggest day "
+        f"({daily.sort('net_mi', descending=True).row(0, named=True)['date']}) · "
+        f"**{int(daily['ascent_ft'].sum()):,} ft** climbed · "
+        f"{daily['pace_mph'].mean():.1f} mph lifetime average"
+    )
+    return daily, markers, odd
+
+
+@app.cell
+def _(alt, daily, mo):
+    mo.md("## The hike in one chart — daily miles, corrected")
+    bars = (
+        alt.Chart(daily.to_pandas())
+        .mark_bar(color="#BBBBF2")
+        .encode(
+            x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
+            y=alt.Y("net_mi:Q", title="trail miles"),
+            tooltip=["date", "net_mi", "ascent_ft", "pace_mph", "start_local", "end_local"],
+        )
+        .properties(height=280)
+    )
+    bars
+    return
+
+
+@app.cell
+def _(alt, daily, mo):
+    mo.md("## Rhythm — when did the day start and end? (Pacific)")
+    clock = daily.with_columns([
+        (pl.col("start_local").str.slice(0, 2).cast(pl.Int64) * 60
+         + pl.col("start_local").str.slice(3, 2).cast(pl.Int64)).alias("start_min"),
+        (pl.col("end_local").str.slice(0, 2).cast(pl.Int64) * 60
+         + pl.col("end_local").str.slice(3, 2).cast(pl.Int64)).alias("end_min"),
+    ])
+    bookends = (
+        alt.Chart(clock.to_pandas())
+        .mark_circle(size=40, color="#7A7AD6")
+        .encode(
+            x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
+            y=alt.Y("start_min:Q", title="time of day",
+                    axis=alt.Axis(format="d"), scale=alt.Scale(domain=[240, 1320])),
+            tooltip=["date", "start_local", "end_local", "net_mi"],
+        )
+        .properties(height=280)
+    )
+    bookends
+    return (clock,)
+
+
+@app.cell
+def _(clock, mo):
+    early = clock.sort("start_min").row(0, named=True)
+    late = clock.sort("end_min", descending=True).row(0, named=True)
+    mo.md(
+        f"Earliest start: **{early['start_local']}** on {early['date']} "
+        f"({early['net_mi']:.0f} mi that day). Latest finish: **{late['end_local']}** "
+        f"on {late['date']}. Median start **{clock['start_local'].median()}**, "
+        f"median finish **{clock['end_local'].median()}**."
+    )
+    return
+
+
+@app.cell
+def _(alt, daily, mo):
+    mo.md("## Trail legs — did I get faster? (pace + 7-day trend)")
+    legs = daily.with_columns(
+        pl.col("pace_mph").rolling_mean(7, center=True).alias("pace_7d")
+    ).to_pandas()
+    legs_base = alt.Chart(legs).encode(
+        x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60))
+    )
+    (legs_base.mark_circle(size=30, color="#BBBBF2").encode(
+        y=alt.Y("pace_mph:Q", title="mph", scale=alt.Scale(zero=False)),
+        tooltip=["date", "pace_mph", "net_mi", "ascent_ft"],
+    ) + legs_base.mark_line(color="#7A7AD6", strokeWidth=3).encode(y="pace_7d:Q")).properties(height=280)
+    return
+
+
+@app.cell
+def _(alt, daily, mo):
+    mo.md("## Engine room — average heart rate trend (fitness = same pace, lower pulse?)")
+    hr = daily.with_columns(
+        pl.col("avg_hr").rolling_mean(7, center=True).alias("hr_7d")
+    ).to_pandas()
+    hr_base = alt.Chart(hr).encode(
+        x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60))
+    )
+    (hr_base.mark_circle(size=30, color="#BBBBF2").encode(
+        y=alt.Y("avg_hr:Q", title="avg bpm", scale=alt.Scale(zero=False)),
+        tooltip=["date", "avg_hr", "pace_mph", "net_mi"],
+    ) + hr_base.mark_line(color="#7A7AD6", strokeWidth=3).encode(y="hr_7d:Q")).properties(height=280)
+    return
+
+
+@app.cell
+def _(alt, daily, mo):
+    mo.md("## Where I slept — camp elevation each night")
+    camps = daily.select(["date", "camp_end_ft"]).to_pandas()
+    alt.Chart(camps).mark_area(color="#BBBBF2", line={"color": "#7A7AD6"}).encode(
+        x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
+        y=alt.Y("camp_end_ft:Q", title="camp elevation (ft)"),
+        tooltip=["date", "camp_end_ft"],
+    ).properties(height=240)
+    return
+
+
+@app.cell
+def _(daily, mo):
+    hi = daily.sort("camp_end_ft", descending=True).row(0, named=True)
+    lo = daily.sort("camp_end_ft").row(0, named=True)
+    big = daily.sort("ascent_ft", descending=True).row(0, named=True)
+    mo.md(
+        f"Highest sleep: **{hi['camp_end_ft']:,} ft** ({hi['date']}). "
+        f"Lowest sleep: **{lo['camp_end_ft']:,} ft** ({lo['date']}). "
+        f"Biggest climb: **{big['ascent_ft']:,} ft** on {big['date']}."
+    )
+    return
+
+
+@app.cell
+def _(markers, mo, odd, pl):
+    mo.md("""
+    ## Weird I — backtracks (did I drop something?)
+
+    Sustained southbound wiggles >0.25 mi with time to be real footsteps
+    (instant flips are hairpin projection artifacts — labeled, kept for fun).
+    *at_mi* joined to the nearest half-mile marker section for location.
+    """)
+    bt = (
+        odd.filter(pl.col("type") == "backtrack")
+        .sort("at_route_mi")
+        .join_asof(markers.select(["mile", "section"]).rename({"mile": "at_route_mi"}),
+                   left_on="at_route_mi", right_on="at_route_mi", strategy="nearest")
+        .select(["date", "start_local", "end_local", "mi", "extra_mi",
+                 "at_route_mi", "section", "detail"])
+        .sort("mi", descending=True)
+    )
+    mo.ui.table(bt)
+    return
+
+
+@app.cell
+def _(markers, mo, odd, pl):
+    mo.md("""
+    ## Weird II — side quests & alternates (water? views? wrong turns?)
+
+    Stretches >500 ft off the canonical line. Short + returned = side quest.
+    Long = alternate (confirm!). *max_ft* is how far off-trail it got.
+    """)
+    sq = (
+        odd.filter(pl.col("type").is_in(["sidequest", "alternate"]))
+        .sort("at_route_mi")
+        .join_asof(markers.select(["mile", "section"]).rename({"mile": "at_route_mi"}),
+                   left_on="at_route_mi", right_on="at_route_mi", strategy="nearest")
+        .select(["type", "date", "start_local", "end_local", "mi",
+                 "at_route_mi", "section", "detail"])
+        .sort("date")
+    )
+    mo.ui.table(sq)
+    return
+
+
+@app.cell
+def _(daily, mo, np, pl):
+    mo.md("""
+    ## Weird III — regime changes (caffeine? shoes? tramily? you tell me)
+
+    Greedy binary segmentation on three daily series: it finds the split
+    that most reduces variance, then splits again (×3 each). These are
+    *candidate* change dates, not conclusions — annotate freely.
+    """)
+    def sse(y):
+        return ((y - y.mean()) ** 2).sum()
+
+    def top_splits(y, k=3, min_len=7):
+        segs = [(0, len(y))]
+        out = []
+        for _ in range(k):
+            best = None
+            for a, b in segs:
+                if b - a < 2 * min_len:
+                    continue
+                for c in range(a + min_len, b - min_len + 1):
+                    gain = sse(y[a:b]) - sse(y[a:c]) - sse(y[c:b])
+                    if best is None or gain > best[0]:
+                        best = (gain, a, c, b)
+            if best is None:
+                break
+            _, a, c, b = best
+            out.append(c)
+            segs.remove((a, b))
+            segs += [(a, c), (c, b)]
+        return sorted(out)
+
+    dates = daily["date"].to_list()
+    regs = []
+    for col in ["pace_mph", "net_mi", "avg_hr"]:
+        y = daily[col].to_numpy()
+        for c in top_splits(y):
+            regs.append({
+                "date": dates[c],
+                "series": col,
+                "before": round(float(y[:c].mean()), 2),
+                "after": round(float(y[c:].mean()), 2),
+                "your_annotation": "???",
+            })
+    mo.ui.table(pl.DataFrame(regs).sort("date"))
+    return
+
+
+@app.cell
+def _(daily, mo):
+    mo.md("## Zero days — the 10 missing dates (town? rest? rain?)")
+    import datetime as dt
+    have = set(daily["date"].to_list())
+    d0, d1 = dt.date(2026, 4, 25), dt.date(2026, 8, 11)
+    missing = [str(d0 + dt.timedelta(days=i)) for i in range((d1 - d0).days + 1)
+               if str(d0 + dt.timedelta(days=i)) not in have]
+    mo.md("**" + "**, **".join(missing) + "** — annotate: town / rest / weather / chaos?")
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ## Records & superlatives (workshop these)
+
+    - Biggest day, biggest climb, highest/lowest camp: computed above.
+    - TODO: fastest mile? (sparse UltraTrac — approximate only)
+    - TODO: total footsteps (cadence → strides is in the data).
+    - TODO: morning person arc — starts trending earlier/later by state?
+    - TODO: rain/heat overlays (no temp sensor on watch — needs external weather).
+    - TODO: FarOut mile markers + inReach 20-min fixes as second opinions.
+
+    *Throwing things at the wall per instructions — tune away.*
+    """)
+    return
+
+
+if __name__ == "__main__":
+    app.run()
