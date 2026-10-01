@@ -236,11 +236,11 @@ plt.ylabel("heart rate (bpm, every recorded fix)")
 plt.title("Heart rate by section", fontsize=13, weight="bold")
 save("12_heartbeat.png")
 
-# 15 — cumulative climbing over the hours of the 10 biggest climbing days ------------
+# 15 — cumulative climbing over the hours of the 7 biggest climbing days -------------
 trk = pl.read_parquet(BASE / "data" / "tracks.parquet").filter(
     pl.col("altitude_m").is_not_null()).sort(["date", "timestamp_utc"])
-cands = sorted([r for r in d if r["is_full"]], key=lambda r: -r["ascent_ft"])[:15]
-big10 = []
+cands = sorted([r for r in d if r["is_full"]], key=lambda r: -r["ascent_ft"])[:12]
+big7 = []
 for r in cands:
     day = trk.filter(pl.col("date") == r["date"])
     if day.height < 10:
@@ -255,18 +255,28 @@ for r in cands:
             cur0 = i
         best = max(best, hrs[i] - hrs[cur0])
     if best <= 4:
-        big10.append((r, hrs, climb))
-big10 = big10[:10]
+        big7.append((r, hrs, climb))
+big7 = big7[:7]
 plt.figure(figsize=(11, 5.5))
-for r, hrs, climb in big10:
-    plt.plot(hrs, climb, color=SECC[SECTIONS.index(r["section"])], alpha=0.75, lw=2.5)
-    plt.text(hrs[-1] + 0.15, climb[-1], r["date"][5:],
-             va="center", fontsize=9,
-             color=SECC[SECTIONS.index(r["section"])])
+ends = []
+for r, hrs, climb in big7:
+    col = SECC[SECTIONS.index(r["section"])]
+    plt.plot(hrs, climb, color=col, alpha=0.75, lw=2.5)
+    ends.append((hrs[-1], climb[-1], r["date"][5:], col))
+plt.xlim(0, 16.5)
+ends.sort(key=lambda e: e[1])
+GAP = 450  # min vertical separation between labels (ft)
+placed = []
+for x, y, lab, col in ends:
+    y = max(y, (placed[-1] + GAP) if placed else y)
+    placed.append(y)
+for (x, y, lab, col), ya in zip(ends, placed):
+    plt.plot([x, 15.0], [y, ya], color=col, lw=1, alpha=0.6)
+    plt.text(15.05, ya, lab, va="center", fontsize=9, color=col)
 plt.xlim(0, 15)
 plt.xlabel("hours since first fix of the day")
 plt.ylabel("cumulative feet climbed that day")
-plt.title("How the 10 biggest climbing days accumulated", fontsize=13, weight="bold")
+plt.title("How the 7 biggest climbing days accumulated", fontsize=13, weight="bold")
 save("15_climbing_days.png")
 
 print("done → graphics/", flush=True)
