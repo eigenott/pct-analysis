@@ -31,14 +31,12 @@ def main() -> None:
     mm = np.convolve(mi, np.ones(k) / k, mode="valid")
 
     fig = plt.figure(figsize=(16, 9))
-    gs = fig.add_gridspec(3, 1, height_ratios=[0.35, 1.6, 1.1], hspace=0.35, top=0.88,
-                          bottom=0.08)
-    fig.suptitle("MEXICO TO CANADA ON FOOT", fontsize=42, weight="bold", y=0.98)
-    fig.text(0.5, 0.92, "Pacific Crest Trail 2026 · 2,443 trail miles · "
+    fig.suptitle("MEXICO TO CANADA ON FOOT", fontsize=32, weight="bold", y=0.975)
+    fig.text(0.5, 0.90, "Pacific Crest Trail 2026 · 2,443 trail miles · "
              "Campo → Rainy Pass · 99 hiking days · 10 zeros",
-             ha="center", fontsize=16)
+             ha="center", fontsize=15)
 
-    ax = fig.add_subplot(gs[1])
+    ax = fig.add_axes([0.06, 0.34, 0.88, 0.50])
     for i in range(5):
         m = (mm >= BOUNDS[i]) & (mm <= BOUNDS[i + 1])
         ax.fill_between(mm[m], em[m], alpha=0.6, color=SECC[i])
@@ -49,23 +47,19 @@ def main() -> None:
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
 
-    ag = fig.add_subplot(gs[2])
-    ag.axis("off")
     for i, s in enumerate(SECTIONS):
         sd = daily.filter(pl.col("section") == s)
-        x0 = i / 5
-        ag.text(x0 + 0.1, 0.85, s, fontsize=18, weight="bold", color=SECC[i],
-                transform=ag.transAxes)
-        ag.text(x0 + 0.1, 0.62,
-                f"{sd['net_mi'].sum():.0f} mi · {sd.height} days",
-                fontsize=14, transform=ag.transAxes)
+        x = 0.07 + i * 0.176
+        fig.text(x, 0.26, s, fontsize=17, weight="bold", color=SECC[i])
+        fig.text(x, 0.215, f"{sd['net_mi'].sum():.0f} mi · {sd.height} days",
+                 fontsize=13)
         best = sd.sort("net_mi", descending=True).row(0, named=True)
-        ag.text(x0 + 0.1, 0.38, f"best {best['net_mi']:.1f} mi ({best['date'][5:]})",
-                fontsize=12, transform=ag.transAxes)
-        ag.text(x0 + 0.1, 0.14,
-                f"median pace {sd['pace_mph'].median():.2f} mph",
-                fontsize=12, transform=ag.transAxes)
-    fig.text(0.5, 0.02, "Forerunner 255 · UltraTrac · cleaned GPS · polars + marimo",
+        fig.text(x, 0.165, f"best {best['net_mi']:.1f} mi ({best['date'][5:]})",
+                 fontsize=11)
+        fig.text(x, 0.115,
+                 f"median pace {sd['pace_mph'].median():.2f} mph",
+                 fontsize=11)
+    fig.text(0.5, 0.03, "Forerunner 255 · UltraTrac · cleaned GPS · polars + marimo",
              ha="center", fontsize=11, style="italic")
     fig.savefig(BASE / "masthead.png", bbox_inches="tight")
     print("masthead.png written", flush=True)
