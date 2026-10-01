@@ -21,6 +21,15 @@ OUT.mkdir(exist_ok=True)
 
 SECTIONS = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
 SECC = ["#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00"]
+
+
+def _light(hexcol, amt=0.55):
+    import matplotlib.colors as mcolors
+    c = np.array(mcolors.to_rgb(hexcol))
+    return tuple(float(v) for v in 1 - (1 - c) * (1 - amt))
+
+
+SEC_LIGHT = [_light(c) for c in SECC]  # washed-out twin of each section hue
 BOUNDS = [0, 702, 1092, 1694, 2146, 3000]
 DEEP = "#333333"
 RED = "#C0392B"
@@ -241,7 +250,7 @@ fig.suptitle("How fast is every mile of the PCT? (green = fast, red = slow)",
 save("41_speed_map.png")
 
 # 59 — camp map: one dot per night, sized by that day's miles ---------------------------------------------
-mid_mi = ((daily.select(["date", "net_mi", "section", "route_min_mi", "route_max_mi"])
+mid_mi = ((daily.select(["date", "net_mi", "section", "is_full", "route_min_mi", "route_max_mi"])
            .with_columns(((pl.col("route_min_mi") + pl.col("route_max_mi")) / 2).alias("mid")))
           .to_dicts())
 cl = pl.read_parquet(BASE / "data" / "route_centerline.parquet")
@@ -249,9 +258,9 @@ cmi = cl["route_mi"].to_numpy()
 cla, clo = cl["lat"].to_numpy(), cl["lon"].to_numpy()
 fig, axes = plt.subplots(1, 5, figsize=(13, 5.6),
                            gridspec_kw={"width_ratios": [
-                               # ground-true panel widths: lon span × cos(lat) / lat span
+                               # one shared scale: cell aspect matches data aspect
+                               # so aspect="equal" never letterboxes any panel
                                (np.ptp(clo[(cmi >= lo_b) & (cmi < hi_b)])
-                                * np.cos(np.radians(40))
                                 / np.ptp(cla[(cmi >= lo_b) & (cmi < hi_b)]))
                                for lo_b, hi_b in zip(BOUNDS, BOUNDS[1:])]})
 for ax, s, col, (lo_b, hi_b) in zip(axes, SECTIONS, SECC, zip(BOUNDS, BOUNDS[1:])):
@@ -259,8 +268,9 @@ for ax, s, col, (lo_b, hi_b) in zip(axes, SECTIONS, SECC, zip(BOUNDS, BOUNDS[1:]
     ax.scatter(clo[m][::15], cla[m][::15], c="#DDDDDD", s=3, zorder=1)
     dd = [r for r in mid_mi if r["section"] == s]
     at = [np.searchsorted(cmi, min(max(r["mid"], lo_b), hi_b - 0.01)) for r in dd]
+    cols = [(col if r["is_full"] else SEC_LIGHT[SECTIONS.index(s)]) for r in dd]
     ax.scatter(clo[at], cla[at],
-               s=[r["net_mi"] * 5 for r in dd], color=col, edgecolors="white",
+               s=[r["net_mi"] * 5 for r in dd], color=cols, edgecolors="white",
                linewidths=0.8, alpha=0.9, zorder=3)
     pad = 0.06
     ax.set_xlim(clo[m].min() - pad, clo[m].max() + pad)
@@ -273,7 +283,180 @@ for ms in (10, 20, 30, 40):
     axes[-1].scatter([], [], s=ms * 5, color="gray", edgecolors="white",
                      label=f"{ms} mi")
 axes[-1].legend(frameon=False, fontsize=9, loc="lower right", title="daily miles")
-fig.suptitle("99 nights, sized by the day behind them", fontsize=14, weight="bold")
+fig.suptitle("Daily mileage", fontsize=14, weight="bold")
 save("59_camp_map.png")
+
+# 60 — resupply towns on the trail -------------------------------------------------------------------
+tw60 = pl.read_csv(BASE / "reference" / "towns.csv").sort("mile").to_dicts()
+cl = pl.read_parquet(BASE / "data" / "route_centerline.parquet")
+cmi = cl["route_mi"].to_numpy()
+cla, clo = cl["lat"].to_numpy(), cl["lon"].to_numpy()
+tw_at = []
+for t in tw60:
+    i = int(np.searchsorted(cmi, min(max(t["mile"], 0), cmi[-1])))
+    tw_at.append((t["name"], clo[i], cla[i], t["mile"]))
+fig, axes = plt.subplots(1, 5, figsize=(13, 5.6),
+                         gridspec_kw={"width_ratios": [
+                             (np.ptp(clo[(cmi >= lo_b) & (cmi < hi_b)])
+                              / np.ptp(cla[(cmi >= lo_b) & (cmi < hi_b)]))
+                             for lo_b, hi_b in zip(BOUNDS, BOUNDS[1:])]})
+for ax, s, (lo_b, hi_b) in zip(axes, SECTIONS, zip(BOUNDS, BOUNDS[1:])):
+    m = (cmi >= lo_b) & (cmi < hi_b)
+    ax.scatter(clo[m][::15], cla[m][::15], c="#DDDDDD", s=3, zorder=1)
+    # (dxpt, dypt, ha, va) overrides for crowded labels; default: right/center
+    tweaks = {
+        "Cajon Junction": (-4, 0, "right", "center"),
+        "Wrightwood": (5, 7, "left", "bottom"),
+        "Government Camp": (-4, -9, "right", "top"),
+        "Stehekin": (-4, -9, "right", "top"),
+        "Stevens Pass": (-4, -9, "right", "top"),
+    }
+    for name, lo, la, mile in [t for t in tw_at if lo_b <= t[3] < hi_b]:
+        ax.scatter([lo], [la], c="black", s=28, zorder=3)
+        dx, dy, ha, va = tweaks.get(name, (4, 0, "left", "center"))
+        ax.annotate(name, (lo, la), xytext=(dx, dy), textcoords="offset points",
+                    fontsize=6.5, va=va, ha=ha, zorder=4,
+                    bbox={"facecolor": "white", "edgecolor": "none",
+                          "alpha": 0.65, "pad": 0.5, "boxstyle": "round,pad=0.2"})
+    ax.set_xlim(clo[m].min() - 0.06, clo[m].max() + 0.35)
+    ax.set_ylim(cla[m].min() - 0.06, cla[m].max() + 0.06)
+    ax.set_aspect("equal")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title(s, fontsize=11, weight="bold")
+fig.suptitle("Resupply towns along the trail", fontsize=14, weight="bold")
+save("60_towns_map.png")
+
+# 61 — longest food carry in each section ------------------------------------------------------------------
+all_gaps = sorted(
+    [(tw60[i + 1]["mile"] - tw60[i]["mile"], tw60[i]["name"], tw60[i + 1]["name"])
+     for i in range(len(tw60) - 1)
+     if tw60[i + 1]["mile"] > tw60[i]["mile"]], reverse=True)
+
+
+def _sec(mi):
+    for b, s in zip([702, 1092, 1694, 2146, 1e9], SECTIONS):
+        if mi < b:
+            return s
+    return SECTIONS[-1]
+
+
+best = {}
+tw_mile = {t["name"]: t["mile"] for t in tw60}
+for gap, a, b in all_gaps:
+    s = _sec((tw_mile[a] + tw_mile[b]) / 2)
+    if s not in best:
+        best[s] = (gap, a, b)
+fig, axes = plt.subplots(1, 5, figsize=(13, 5.6),
+                         gridspec_kw={"width_ratios": [
+                             (np.ptp(clo[(cmi >= lo_b) & (cmi < hi_b)])
+                              / np.ptp(cla[(cmi >= lo_b) & (cmi < hi_b)]))
+                             for lo_b, hi_b in zip(BOUNDS, BOUNDS[1:])]})
+for ax, s, col, (lo_b, hi_b) in zip(axes, SECTIONS, SECC, zip(BOUNDS, BOUNDS[1:])):
+    m = (cmi >= lo_b) & (cmi < hi_b)
+    ax.scatter(clo[m][::15], cla[m][::15], c="#DDDDDD", s=3, zorder=1)
+    gap, a, b = best[s]
+    ma, mb = tw_mile[a], tw_mile[b]
+    seg = (cmi >= ma) & (cmi <= mb)
+    ax.scatter(clo[seg][::6], cla[seg][::6], c=col, s=8, zorder=3)
+    j = int(np.searchsorted(cmi, (ma + mb) / 2))
+    ax.text(clo[j], cla[j], f"  {gap:.0f} mi", fontsize=8, weight="bold",
+            color=col, va="center", zorder=4)
+    for mm, nm in ((ma, a), (mb, b)):
+        k = int(np.searchsorted(cmi, mm))
+        ax.scatter([clo[k]], [cla[k]], c="black", s=28, zorder=4)
+        ax.annotate(nm, (clo[k], cla[k]), xytext=(5, 0), textcoords="offset points",
+                    fontsize=6.5, va="center", zorder=4,
+                    bbox={"facecolor": "white", "edgecolor": "none",
+                          "alpha": 0.7, "pad": 0.5, "boxstyle": "round,pad=0.2"})
+    ax.set_xlim(clo[m].min() - 0.06, clo[m].max() + 0.06)
+    ax.set_ylim(cla[m].min() - 0.06, cla[m].max() + 0.06)
+    ax.set_aspect("equal")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title(s, fontsize=11, weight="bold")
+fig.suptitle("Longest food carry in each section", fontsize=14, weight="bold")
+save("61_carries_map.png")
+
+# 63 — town stays from recording gaps ------------------------------------------------------
+# A gap >6h between consecutive (H5-clean) fixes within 3 trail-miles of a town
+# counts as time in that town. Backcountry camp gaps fall nowhere near towns.
+import sys as _sys
+_sys.path.insert(0, str(BASE / "scripts"))
+from flag_jumps import segments as _segments
+
+t63 = (pl.read_parquet(BASE / "data" / "tracks.parquet")
+       .filter(pl.col("lat").is_not_null())
+       .sort(["date", "source_file", "point_index"]))
+ok63, dist63, dts63, spd63, g63, _p63, _f63 = _segments(t63)
+v63 = ~np.isnan(spd63) & (dts63 > 0)
+h563 = np.zeros(len(ok63), bool)
+h563[v63] = ((spd63[v63] * 2.23694 > 26.8) & (dist63[v63] / 1609.344 > 656 / 5280))
+bad63 = set(ok63[h563].tolist()) | set((ok63[h563] + 1).tolist())
+pr63 = (pl.read_parquet(BASE / "data" / "track_route.parquet")
+        .sort(["date", "source_file", "point_index"]))
+rm63 = pr63["route_mi"].to_numpy()
+ts63 = np.array([x.timestamp() for x in pr63["timestamp_utc"].to_list()])
+good63 = np.array([i not in bad63 for i in range(len(pr63))])
+ord63 = np.argsort(ts63)
+ts63, rm63, good63 = ts63[ord63], rm63[ord63], good63[ord63]
+gap_h = np.diff(ts63) / 3600
+is_gap = (gap_h > 6) & good63[:-1] & good63[1:]
+towns63 = pl.read_csv(BASE / "reference" / "towns.csv").sort("mile").to_dicts()
+tm63 = np.array([t["mile"] for t in towns63])
+stay = {t["name"]: 0.0 for t in towns63}
+for i in np.where(is_gap)[0]:
+    j = int(np.argmin(abs(tm63 - rm63[i])))
+    if abs(tm63[j] - rm63[i]) <= 3:
+        stay[towns63[j]["name"]] += float(gap_h[i])
+print(f"   town-stay gaps: {is_gap.sum()}, attributed: "
+      f"{sum(1 for v in stay.values() if v > 0)} towns", flush=True)
+
+
+def _secc(mi):
+    for b, s in zip([702, 1092, 1694, 2146, 1e9], SECTIONS):
+        if mi < b:
+            return SECC[SECTIONS.index(s)]
+    return SECC[-1]
+
+
+fig, axes = plt.subplots(1, 5, figsize=(13, 5.6),
+                         gridspec_kw={"width_ratios": [
+                             (np.ptp(clo[(cmi >= lo_b) & (cmi < hi_b)])
+                              / np.ptp(cla[(cmi >= lo_b) & (cmi < hi_b)]))
+                             for lo_b, hi_b in zip(BOUNDS, BOUNDS[1:])]})
+TOWN_TWEAKS = {
+    "Cajon Junction": (-4, 0, "right", "center"),
+    "Wrightwood": (5, 7, "left", "bottom"),
+    "Government Camp": (-4, -9, "right", "top"),
+    "Stehekin": (-4, -9, "right", "top"),
+    "Stevens Pass": (-4, -9, "right", "top"),
+}
+for ax, s, (lo_b, hi_b) in zip(axes, SECTIONS, zip(BOUNDS, BOUNDS[1:])):
+    m = (cmi >= lo_b) & (cmi < hi_b)
+    ax.scatter(clo[m][::15], cla[m][::15], c="#DDDDDD", s=3, zorder=1)
+    for t in [x for x in towns63 if lo_b <= x["mile"] < hi_b]:
+        i = int(np.searchsorted(cmi, t["mile"]))
+        h = stay[t["name"]]
+        col = _secc(t["mile"]) if h > 0.5 else "#CCCCCC"
+        ax.scatter([clo[i]], [cla[i]], c=col, s=(14 + min(h, 80) * 2.2) if h > 0.5 else 10,
+                   zorder=3, edgecolors="white", linewidths=0.8)
+        if h > 0.5:
+            lab = f"{t['name']} {h:.0f}h" if h >= 10 else t["name"]
+            dx, dy, ha, va = TOWN_TWEAKS.get(t["name"], (4, 0, "left", "center"))
+            ax.annotate(lab, (clo[i], cla[i]), xytext=(dx, dy),
+                        textcoords="offset points", fontsize=6.5, va=va, ha=ha,
+                        zorder=4,
+                        bbox={"facecolor": "white", "edgecolor": "none",
+                              "alpha": 0.7, "pad": 0.5, "boxstyle": "round,pad=0.2"})
+    ax.set_xlim(clo[m].min() - 0.06, clo[m].max() + 0.06)
+    ax.set_ylim(cla[m].min() - 0.06, cla[m].max() + 0.06)
+    ax.set_aspect("equal")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title(s, fontsize=11, weight="bold")
+fig.suptitle("Time in resupply towns, from gaps between recordings",
+             fontsize=14, weight="bold")
+save("63_town_stays.png")
 
 print("done → graphics/", flush=True)
