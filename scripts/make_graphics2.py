@@ -290,4 +290,23 @@ plt.title("The 12 biggest sustained climbs (2,000 ft+, 600 ft dip tolerance)",
           fontsize=13, weight="bold")
 save("30_climbs.png")
 
+# 56 — median miles per hour, one mini plot per section -------------------------------------------
+hh56 = pl.read_parquet(BASE / "data" / "hourly.parquet")
+fig, axes = plt.subplots(1, 5, figsize=(14, 3.8), sharey=True)
+for ax, s, col in zip(axes, SECTIONS, SECC):
+    dd = [r["date"] for r in d if r["section"] == s and r["is_full"]]
+    cur = (hh56.filter(pl.col("date").is_in(dd)
+                       & pl.col("hour_local").is_between(4, 23))
+           .group_by("hour_local").agg(pl.col("mi").median().alias("m"))
+           .sort("hour_local"))
+    ax.bar(cur["hour_local"], cur["m"], color=col, edgecolor="white")
+    ax.set_title(s, fontsize=11, weight="bold")
+    ax.set_xlim(3.5, 21.5)
+    ax.set_xticks([4, 9, 14, 19])
+    ax.tick_params(labelsize=8)
+axes[0].set_ylabel("median miles in that hour")
+fig.suptitle("Median miles hiked per hour of day by section (full days)",
+             fontsize=13, weight="bold")
+save("56_hourly_facets.png")
+
 print("done → graphics/", flush=True)
