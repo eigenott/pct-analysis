@@ -82,7 +82,7 @@ def _(alt, date_picker, pl):
         y=alt.Y("altitude_ft:Q", title="altitude (ft)", scale=alt.Scale(zero=False)),
         tooltip=["timestamp_utc", "altitude_ft", "heart_rate"],
     ).properties(height=300)
-    return (day,)
+    return
 
 
 @app.cell
@@ -102,29 +102,17 @@ def _(mo):
 
 
 @app.cell
-def _(alt, date_picker, day):
-    alt.Chart(day).mark_line().encode(
-        x=alt.X("timestamp_utc:T", title=f"{date_picker.value} (UTC)"),
-        y=alt.Y("altitude_ft:Q", title="altitude (ft)", scale=alt.Scale(zero=False)),
-        tooltip=["timestamp_utc", "altitude_ft", "heart_rate"],
-    ).properties(height=300)
-    return
-
-
-@app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Jump review — human in the loop
+    mo.md("""
+    ## Jump review — human in the loop
 
-        Segments faster than 12 m/s (27 mph — impossible on foot) were
-        grouped into events by `scripts/flag_jumps.py`. The top 90 events
-        (≥0.5 mi… er, ≥0.5 km of bogus distance) are queued below — biggest
-        first. For each: check the map, then verdict.
-        Your calls are appended to `data/jump_verdicts.csv` (scripts never
-        touch that file, so re-running the detector won't lose your work).
-        """
-    )
+    Segments faster than 12 m/s (27 mph — impossible on foot) were
+    grouped into events by `scripts/flag_jumps.py`. The top 90 events
+    (≥0.5 mi… er, ≥0.5 km of bogus distance) are queued below — biggest
+    first. For each: check the map, then verdict.
+    Your calls are appended to `data/jump_verdicts.csv` (scripts never
+    touch that file, so re-running the detector won't lose your work).
+    """)
     return
 
 
@@ -148,7 +136,7 @@ def _(mo, pl):
         f"{queue.height} left in queue (≥{REVIEW_MIN_KM} km), "
         f"{cand.height - decided.height - queue.height} small fry deferred"
     )
-    return VERDICTS, cand, decided, queue
+    return VERDICTS, cand, queue
 
 
 @app.cell
@@ -202,7 +190,7 @@ def _(cand, mo, picker, pl):
         name="flagged", hoverinfo="skip",
     ))
     fig.update_layout(
-        map_style="open-street-map",
+        map_style="carto-positron",
         map_center={"lat": float(flagged["lat"].mean()), "lon": float(flagged["lon"].mean())},
         map_zoom=zoom, height=450, margin={"l": 0, "r": 0, "t": 0, "b": 0},
         showlegend=False,
@@ -212,11 +200,11 @@ def _(cand, mo, picker, pl):
         f"{sel['n_flagged_seg']} segments, max {sel['max_speed_m_s']:.0f} m/s "
         f"(worst gap {sel['worst_dt_s']:.0f}s)"
     )
-    return fig, sel
+    return (fig,)
 
 
 @app.cell
-def _(fig, mo, picker):
+def _(VERDICTS, fig, mo, picker):
     import csv
     from datetime import datetime, timezone
 
