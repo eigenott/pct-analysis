@@ -401,7 +401,9 @@ good63 = np.array([i not in bad63 for i in range(len(pr63))])
 ord63 = np.argsort(ts63)
 ts63, rm63, good63 = ts63[ord63], rm63[ord63], good63[ord63]
 gap_h = np.diff(ts63) / 3600
-is_gap = (gap_h > 6) & good63[:-1] & good63[1:]
+# attribute by the gap-START fix (where the stop began); it must be H5-clean
+# so the location is trusted. The end fix may be jump-adjacent — irrelevant.
+is_gap = (gap_h > 6) & good63[:-1]
 towns63 = pl.read_csv(BASE / "reference" / "towns.csv").sort("mile").to_dicts()
 tm63 = np.array([t["mile"] for t in towns63])
 stay = {t["name"]: 0.0 for t in towns63}
@@ -457,5 +459,38 @@ for ax, s, (lo_b, hi_b) in zip(axes, SECTIONS, zip(BOUNDS, BOUNDS[1:])):
     ax.set_title(s, fontsize=11, weight="bold")
 fig.suptitle("Time in town", fontsize=14, weight="bold")
 save("63_town_stays.png")
+
+# 64 — map like 63, but every town listed with its time -------------------------------------------------
+fig, axes = plt.subplots(1, 5, figsize=(13, 5.6),
+                         gridspec_kw={"width_ratios": [
+                             (np.ptp(clo[(cmi >= lo_b) & (cmi < hi_b)])
+                              / np.ptp(cla[(cmi >= lo_b) & (cmi < hi_b)]))
+                             for lo_b, hi_b in zip(BOUNDS, BOUNDS[1:])]})
+for ax, s, (lo_b, hi_b) in zip(axes, SECTIONS, zip(BOUNDS, BOUNDS[1:])):
+    m = (cmi >= lo_b) & (cmi < hi_b)
+    ax.scatter(clo[m][::15], cla[m][::15], c="#DDDDDD", s=3, zorder=1)
+    for t in [x for x in towns63 if lo_b <= x["mile"] < hi_b]:
+        i = int(np.searchsorted(cmi, t["mile"]))
+        h = stay[t["name"]]
+        visited = h > 0.5
+        col = _secc(t["mile"]) if visited else "#CCCCCC"
+        ax.scatter([clo[i]], [cla[i]], c=col,
+                   s=(14 + min(h, 80) * 2.2) if visited else 10,
+                   zorder=3, edgecolors="white", linewidths=0.8)
+        lab = f"{t['name']} {h:.0f}h" if visited else t["name"]
+        dx, dy, ha, va = TOWN_TWEAKS.get(t["name"], (4, 0, "left", "center"))
+        ax.annotate(lab, (clo[i], cla[i]), xytext=(dx, dy),
+                    textcoords="offset points", fontsize=6,
+                    va=va, ha=ha, zorder=4,
+                    bbox={"facecolor": "white", "edgecolor": "none",
+                          "alpha": 0.7, "pad": 0.5, "boxstyle": "round,pad=0.2"})
+    ax.set_xlim(clo[m].min() - 0.06, clo[m].max() + 0.06)
+    ax.set_ylim(cla[m].min() - 0.06, cla[m].max() + 0.06)
+    ax.set_aspect("equal")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title(s, fontsize=11, weight="bold")
+fig.suptitle("Time in every town", fontsize=14, weight="bold")
+save("64_town_all.png")
 
 print("done → graphics/", flush=True)
