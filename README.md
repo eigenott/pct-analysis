@@ -1,6 +1,6 @@
 # PCT 2026 — Hike Data Analysis
 
-This project was substantially produced with the help of AI coding tools.  
+!! This project was substantially produced with the help of AI coding tools. !!
 
 > **TL;DR.** I thru-hiked the Pacific Crest Trail in 2026 (Apr 25 – Aug 11):
 > **2,442.8 trail miles** over **99 hiking days** (+ 10 town/zero days),
@@ -11,7 +11,7 @@ This project was substantially produced with the help of AI coding tools.
 
 ## Who / what
 
-I'm a **data scientist turned thru-hiker** (ex-quant) who is obsessed with graphs. Built with Python (uv),
+I'm a **data scientist turned thru-hiker** (ex-quant) who is obsessed with graphs. This analysis is with Python (uv),
 **polars**, **marimo**, altair, plotly, garmin-fit-sdk, scipy — pair-built
 with **Muse Spark** (via OpenCode) as coding partner and analyst. Start
 with the report notebook; cleaning details live in
