@@ -240,4 +240,31 @@ fig.suptitle("How fast is every mile of the PCT? (green = fast, red = slow)",
                fontsize=14, weight="bold")
 save("41_speed_map.png")
 
+# 59 — camp map: one dot per night, sized by that day's miles ---------------------------------------------
+mid_mi = ((daily.select(["date", "net_mi", "section", "route_min_mi", "route_max_mi"])
+           .with_columns(((pl.col("route_min_mi") + pl.col("route_max_mi")) / 2).alias("mid")))
+          .to_dicts())
+cl = pl.read_parquet(BASE / "data" / "route_centerline.parquet")
+cmi = cl["route_mi"].to_numpy()
+cla, clo = cl["lat"].to_numpy(), cl["lon"].to_numpy()
+fig, axes = plt.subplots(1, 5, figsize=(13, 6))
+for ax, s, col, (lo_b, hi_b) in zip(axes, SECTIONS, SECC, zip(BOUNDS, BOUNDS[1:])):
+    m = (cmi >= lo_b) & (cmi < hi_b)
+    ax.scatter(clo[m][::15], cla[m][::15], c="#DDDDDD", s=3, zorder=1)
+    dd = [r for r in mid_mi if r["section"] == s]
+    at = [np.searchsorted(cmi, min(max(r["mid"], lo_b), hi_b - 0.01)) for r in dd]
+    ax.scatter(clo[at], cla[at],
+               s=[r["net_mi"] * 5 for r in dd], color=col, edgecolors="white",
+               linewidths=0.8, alpha=0.9, zorder=3)
+    ax.set_aspect("equal")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title(s, fontsize=11, weight="bold")
+for ms in (10, 20, 30, 40):
+    axes[-1].scatter([], [], s=ms * 5, color="gray", edgecolors="white",
+                     label=f"{ms} mi")
+axes[-1].legend(frameon=False, fontsize=9, loc="lower right", title="daily miles")
+fig.suptitle("99 nights, sized by the day behind them", fontsize=14, weight="bold")
+save("59_camp_map.png")
+
 print("done → graphics/", flush=True)
