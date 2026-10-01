@@ -482,6 +482,7 @@ for ax, s, (lo_b, hi_b) in zip(axes, SECTIONS, zip(BOUNDS, BOUNDS[1:])):
         ax.annotate(lab, (clo[i], cla[i]), xytext=(dx, dy),
                     textcoords="offset points", fontsize=6,
                     va=va, ha=ha, zorder=4,
+                    color="black" if visited else "#999999",
                     bbox={"facecolor": "white", "edgecolor": "none",
                           "alpha": 0.7, "pad": 0.5, "boxstyle": "round,pad=0.2"})
     ax.set_xlim(clo[m].min() - 0.06, clo[m].max() + 0.06)
