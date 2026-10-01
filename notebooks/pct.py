@@ -108,12 +108,29 @@ def _(alt, mo, pl):
 
 
 @app.cell
-def _(corr, mo, pl):
+def _(alt, mo, pl):
+    mo.md("## Along-trail progress — northernmost trail mile by date (flats = zeros, gaps = skips)")
+    route = pl.read_parquet("data/daily_route.parquet")
+    prog = (
+        alt.Chart(route.to_pandas())
+        .mark_line(point=True)
+        .encode(
+            x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
+            y=alt.Y("route_max_mi:Q", title="trail mile"),
+            tooltip=["date", "route_min_mi", "route_max_mi", "net_mi", "offroute_frac"],
+        )
+        .properties(height=300)
+    )
+    prog
+    return (route,)
+
+
+@app.cell
+def _(mo, pl, route):
     mo.md(
-        f"**Totals:** {corr['corrected_mi'].sum():.0f} mi kept, "
-        f"{corr['cut_mi'].sum():.0f} mi cut across "
-        f"{corr.filter(pl.col('cut_mi') > 0).height} days "
-        f"(anchor: ~2450 recorded mi — the rest is jitter, see below)."
+        f"**Along-trail net total: {route['net_mi'].sum():.1f} mi** "
+        f"(anchor ~2450). Days more than half off-route (alternate candidates): "
+        f"{', '.join(route.filter(pl.col('offroute_frac') > 0.5)['date'].to_list())}."
     )
     return
 
@@ -131,6 +148,10 @@ def _(mo):
     - Next: jitter smoothing. ~227 mi of tree-cover bounce remains in the
       corrected total; a light median/speed filter on sub-656 ft segments
       should close most of the gap to the ~2450 anchor.
+    - The route projection already nets 2442.8 mi vs the anchor — use
+      `daily_route.parquet` (`net_mi`, `offroute_frac`) to confirm the
+      alternate-route days and the three skipped sections (05-28, 06-23,
+      07-24) plus the sub-9 mi southbound day (07-16).
     """)
     return
 
