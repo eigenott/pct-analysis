@@ -333,4 +333,24 @@ fig.suptitle("When does each day's mileage happen, by section (full days)",
              fontsize=13, weight="bold")
 save("57_hourly_share.png")
 
+# 58 — median miles per hour, 5 section bars per hour bucket -------------------------------------
+hh58 = pl.read_parquet(BASE / "data" / "hourly.parquet")
+plt.figure(figsize=(13, 5.5))
+hours = list(range(4, 22))
+x = np.arange(len(hours))
+w = 0.15
+for i, (s, col) in enumerate(zip(SECTIONS, SECC)):
+    dd = [r["date"] for r in d if r["section"] == s and r["is_full"]]
+    cur = (hh58.filter(pl.col("date").is_in(dd))
+           .group_by("hour_local").agg(pl.col("mi").median().alias("m")))
+    by_hr = {r["hour_local"]: r["m"] for r in cur.to_dicts()}
+    plt.bar(x + (i - 2) * w, [by_hr.get(h, 0) for h in hours], width=w,
+            label=s, color=col, edgecolor="white")
+plt.xticks(x, hours)
+plt.xlabel("hour (PT)")
+plt.ylabel("median miles in that hour (full days)")
+plt.title("Median miles per hour by section, side by side", fontsize=13, weight="bold")
+plt.legend(frameon=False)
+save("58_hourly_grouped.png")
+
 print("done → graphics/", flush=True)
