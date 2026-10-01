@@ -1,5 +1,7 @@
 # PCT 2026 — Hike Data Analysis
 
+This project was substantially produced with the help of AI coding tools.  
+
 > **TL;DR.** I thru-hiked the Pacific Crest Trail in 2026 (Apr 25 – Aug 11):
 > **2,442.8 trail miles** over **99 hiking days** (+ 10 town/zero days),
 > biggest day **40.3 mi** (Jul 15), **427,500 ft** up and **430,400 ft** down,
