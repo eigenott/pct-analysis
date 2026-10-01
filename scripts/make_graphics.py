@@ -225,11 +225,13 @@ plt.ylabel("heart rate (bpm, every recorded fix)")
 plt.title("Heart rate by section", fontsize=13, weight="bold")
 save("12_heartbeat.png")
 
-# 15 — cumulative climbing over the hours of each day --------------------------------------
+# 15 — cumulative climbing over the hours of the 15 biggest climbing days ------------
 trk = pl.read_parquet(BASE / "data" / "tracks.parquet").filter(
     pl.col("altitude_m").is_not_null()).sort(["date", "timestamp_utc"])
+big15 = sorted([r for r in d if r["is_full"]],
+               key=lambda r: -r["ascent_ft"])[:15]
 plt.figure(figsize=(11, 5.5))
-for r in [x for x in d if x["is_full"]]:
+for r in big15:
     day = trk.filter(pl.col("date") == r["date"])
     if day.height < 10:
         continue
@@ -237,10 +239,11 @@ for r in [x for x in d if x["is_full"]]:
     ts = np.array([x.timestamp() for x in day["timestamp_utc"].to_list()])
     hrs = (ts - ts[0]) / 3600
     climb = np.concatenate([[0], np.cumsum(np.clip(np.diff(alt), 0, None))])
-    plt.plot(hrs, climb, color=SECC[SECTIONS.index(r["section"])], alpha=0.35, lw=1.2)
+    plt.plot(hrs, climb, color=SECC[SECTIONS.index(r["section"])], alpha=0.6, lw=1.5)
+plt.xlim(0, 15)
 plt.xlabel("hours since first fix of the day")
 plt.ylabel("cumulative feet climbed that day")
-plt.title("Every full day's climbing, colored by section", fontsize=13, weight="bold")
+plt.title("How the 15 biggest climbing days accumulated", fontsize=13, weight="bold")
 save("15_climbing_days.png")
 
 print("done → graphics/", flush=True)
