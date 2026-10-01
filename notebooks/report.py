@@ -10,7 +10,8 @@ def _():
     import polars as pl
     import altair as alt
     import numpy as np
-    return alt, mo, np, pl
+
+    return alt, mo, pl
 
 
 @app.cell
@@ -52,7 +53,7 @@ def _(alt, daily, mo, pl):
             y=alt.Y("net_mi:Q", title="trail miles"),
             tooltip=["date", "net_mi", "ascent_ft", "pace_mph", "start_local", "end_local"],
         )
-        .properties(height=280)
+        .properties(width=800, height=280)
     )
     bars
     return
@@ -77,7 +78,7 @@ def _(alt, daily, mo, pl):
                     axis=alt.Axis(format="d"), scale=alt.Scale(domain=[240, 1320])),
             tooltip=["date", "start_local", "end_local", "net_mi"],
         )
-        .properties(height=280)
+        .properties(width=800, height=280)
     )
     bookends
     return (clock,)
@@ -109,7 +110,7 @@ def _(alt, daily, mo, pl):
     (legs_base.mark_circle(size=30, color="#BBBBF2").encode(
         y=alt.Y("pace_mph:Q", title="mph", scale=alt.Scale(zero=False)),
         tooltip=["date", "pace_mph", "net_mi", "ascent_ft"],
-    ) + legs_base.mark_line(color="#7A7AD6", strokeWidth=3).encode(y="pace_7d:Q")).properties(height=280)
+    ) + legs_base.mark_line(color="#7A7AD6", strokeWidth=3).encode(y="pace_7d:Q")).properties(width=800, height=280)
     return
 
 
@@ -126,7 +127,7 @@ def _(alt, daily, mo, pl):
     (hr_base.mark_circle(size=30, color="#BBBBF2").encode(
         y=alt.Y("avg_hr:Q", title="avg bpm", scale=alt.Scale(zero=False)),
         tooltip=["date", "avg_hr", "pace_mph", "net_mi"],
-    ) + hr_base.mark_line(color="#7A7AD6", strokeWidth=3).encode(y="hr_7d:Q")).properties(height=280)
+    ) + hr_base.mark_line(color="#7A7AD6", strokeWidth=3).encode(y="hr_7d:Q")).properties(width=800, height=280)
     return
 
 
@@ -140,7 +141,7 @@ def _(alt, daily, mo, pl):
         x=alt.X("day:T", title="date"),
         y=alt.Y("camp_end_ft:Q", title="camp elevation (ft)"),
         tooltip=["date", "camp_end_ft"],
-    ).properties(height=240)
+    ).properties(width=800, height=240)
     return
 
 
@@ -161,7 +162,7 @@ def _(alt, mo, pl):
         x=alt.X("grade_pct:Q", title="grade (%)"),
         y=alt.Y("med_mph:Q", title="median mph", scale=alt.Scale(zero=False)),
         tooltip=["grade_pct", "med_mph", "n"],
-    ).properties(height=260)
+    ).properties(width=800, height=260)
     return
 
 
@@ -179,7 +180,7 @@ def _(alt, mo, pl):
         x=alt.X("hour_local:O", title="hour (PT)"),
         y=alt.Y("med_mph:Q", title="median mph", scale=alt.Scale(zero=False)),
         tooltip=["hour_local", "med_mph", "n"],
-    ).properties(height=260)
+    ).properties(width=800, height=260)
     return
 
 
@@ -204,7 +205,7 @@ def _(alt, daily, mo, pl):
         y2="hi_ft:Q",
         tooltip=["date", "lo_ft", "hi_ft"],
     )
-    (band_elev + alt.Chart(camp).mark_line(color="#7A7AD6").encode(x="day:T", y="camp_end_ft:Q")).properties(height=260)
+    (band_elev + alt.Chart(camp).mark_line(color="#7A7AD6").encode(x="day:T", y="camp_end_ft:Q")).properties(width=800, height=260)
     return
 
 
@@ -213,7 +214,7 @@ def _(mo, pl):
     mo.md("## Confirmed timeline — annotate the changepoints against this")
     ann = pl.read_csv("annotations/events.csv")
     mo.ui.table(ann)
-    return (ann,)
+    return
 
 
 @app.cell
@@ -286,7 +287,7 @@ def _(alt, daily, mo, pl):
         y=alt.Y("med_pace:Q", title="median pace, full days (mph)",
                 scale=alt.Scale(zero=False)),
         tooltip=["section", "med_pace", "n"],
-    ).properties(height=240)
+    ).properties(width=800, height=240)
     return
 
 
@@ -309,7 +310,7 @@ def _(alt, daily, mo, pl):
         color=alt.Color("med_mph:Q", title="median mph",
                         scale=alt.Scale(scheme="purples")),
         tooltip=["hour_local", "section", "med_mph"],
-    ).properties(height=200)
+    ).properties(width=800, height=200)
     return
 
 
@@ -327,7 +328,7 @@ def _(alt, mo, pl):
         color=alt.Color("mi:Q", title="miles",
                         scale=alt.Scale(scheme="purples")),
         tooltip=["date", "hour_local", "mi"],
-    ).properties(height=500)
+    ).properties(width=800, height=500)
     return
 
 
@@ -352,7 +353,7 @@ def _(alt, daily, mo):
 
 
 @app.cell
-def _(alt, daily, mo, pl):
+def _(daily, mo, pl):
     mo.md("## 3D — big-day anatomy: climb × sleep × miles (color = section)")
     import plotly.express as px
     slp3 = pl.read_parquet("data/sleep.parquet").select(["date", "sleep_hrs"])
@@ -361,7 +362,7 @@ def _(alt, daily, mo, pl):
                   hover_name="date",
                   labels={"ascent_ft": "climb (ft)", "sleep_hrs": "sleep (h)",
                           "net_mi": "miles"},
-                  height=520).update_traces(marker={"size": 5})
+                  height=520, width=800).update_traces(marker={"size": 5})
     return
 
 
@@ -383,7 +384,7 @@ def _(alt, mo, pl):
             x=alt.X("hr:O", title="break start hour (PT)"),
             y=alt.Y("count():Q", title="breaks"),
             tooltip=["hr", "count()"],
-        ).properties(height=220)
+        ).properties(width=800, height=220)
     )
     hist
     return (brk,)
@@ -391,13 +392,13 @@ def _(alt, mo, pl):
 
 @app.cell
 def _(brk, mo):
-    mo.md(
-        f"**{brk.height} breaks** on {brk['date'].n_unique()} days "
+    mo.md(f"""
+    **{brk.height} breaks** on {brk['date'].n_unique()} days "
         f"(median **{brk['minutes'].median():.0f} min**). Longest: "
         f"**{brk['minutes'].max():.0f} min** on "
         f"{brk.sort('minutes', descending=True).row(0, named=True)['date']} "
-        f"— watch probably ran overnight."
-    )
+        f"— watch probably ran overnight.
+    """)
     return
 
 
@@ -417,7 +418,7 @@ def _(alt, mo, pl):
         x=alt.X("hour_local:O", title="hour (PT)"),
         y=alt.Y("med_mi:Q", title="median miles in that hour"),
         tooltip=["hour_local", "med_mi"],
-    ).properties(height=240)
+    ).properties(width=800, height=240)
     return
 
 
@@ -430,9 +431,9 @@ def _(alt, mo, pl):
         x=alt.X("day:T", title="date"),
         y=alt.Y("sleep_hrs:Q", title="sleep (h)", scale=alt.Scale(zero=False)),
         tooltip=["date", "sleep_hrs", "score_overall", "deep_hrs", "rem_hrs"],
-    ).properties(height=240)
+    ).properties(width=800, height=240)
     trend
-    return (slp,)
+    return
 
 
 @app.cell
@@ -452,7 +453,7 @@ def _(alt, daily, mo, pl):
         tooltip=["date", "sleep_hrs", "net_mi"],
     ) + alt.Chart(js).transform_regression("sleep_hrs", "net_mi").mark_line(
         color="firebrick").encode(x="sleep_hrs:Q", y="net_mi:Q")
-    ).properties(height=280)
+    ).properties(width=800, height=280)
     return
 
 
@@ -471,7 +472,7 @@ def _(alt, mo, pl):
     (band_hrv + alt.Chart(hv).mark_line(point=True, color="#7A7AD6").encode(
         x="day:T", y=alt.Y("hrv:Q", title="morning HRV (ms)", scale=alt.Scale(zero=False)),
         tooltip=["date", "hrv", "hrv_status", "pace_mph"],
-    )).properties(height=260)
+    )).properties(width=800, height=260)
     return
 
 
@@ -519,7 +520,7 @@ def _(markers, mo, odd, pl):
 
 
 @app.cell
-def _(daily, mo, np, pl):
+def _(daily, mo, pl):
     mo.md("""
     ## Weird III — regime changes (caffeine? shoes? tramily? you tell me)
 

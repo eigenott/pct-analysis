@@ -48,7 +48,7 @@ def _(alt, daily, mo, pl):
             y=alt.Y("miles:Q", title="miles"),
             tooltip=["date", "miles", "ascent_ft", "avg_hr"],
         )
-        .properties(height=300)
+        .properties(width=800, height=300)
     )
     mileage
     return
@@ -81,7 +81,7 @@ def _(alt, date_picker, pl):
         x=alt.X("timestamp_utc:T", title=f"{date_picker.value} (UTC)"),
         y=alt.Y("altitude_ft:Q", title="altitude (ft)", scale=alt.Scale(zero=False)),
         tooltip=["timestamp_utc", "altitude_ft", "heart_rate"],
-    ).properties(height=300)
+    ).properties(width=800, height=300)
     return
 
 
@@ -105,7 +105,7 @@ def _(alt, mo, pl):
             legend=None,
         ),
         tooltip=["date", "component", "miles"],
-    ).properties(height=300)
+    ).properties(width=800, height=300)
     return
 
 
@@ -136,7 +136,7 @@ def _(alt, mo, pl):
             y=alt.Y("route_max_mi:Q", title="trail mile"),
             tooltip=["date", "route_min_mi", "route_max_mi", "net_mi", "offroute_frac"],
         )
-        .properties(height=300)
+        .properties(width=800, height=300)
     )
     spans = (
         alt.Chart(ann)

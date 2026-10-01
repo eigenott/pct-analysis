@@ -15,6 +15,9 @@ data/
 # Raw Garmin export + GPX — huge, local-only, NEVER commit
 rawdata/
 
+# Standalone graphics for posting — generated, local-only
+graphics/
+
 # macOS
 .DS_Store
 
