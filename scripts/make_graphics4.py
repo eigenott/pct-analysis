@@ -26,7 +26,7 @@ RED = "#C0392B"
 
 plt.rcParams.update({
     "figure.dpi": 150, "savefig.dpi": 150,
-    "font.family": "DejaVu Sans", "axes.spines.top": False,
+    "font.family": "serif", "axes.spines.top": False,
     "axes.spines.right": False,
 })
 

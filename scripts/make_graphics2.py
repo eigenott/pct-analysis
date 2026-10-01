@@ -25,7 +25,7 @@ DEEP = "#333333"
 
 plt.rcParams.update({
     "figure.dpi": 150, "savefig.dpi": 150,
-    "font.family": "DejaVu Sans", "axes.spines.top": False,
+    "font.family": "serif", "axes.spines.top": False,
     "axes.spines.right": False,
 })
 
@@ -278,10 +278,20 @@ save("29_ranges.png")
 
 # 30 — top 12 climbs ------------------------------------------------------------------------------------------------------
 cb = pl.read_parquet(BASE / "data" / "climbs.parquet").head(12).to_dicts()
+towns = pl.read_csv(BASE / "reference" / "towns.csv").to_dicts()
+
+
+def nearest_town(mid):
+    return min(towns, key=lambda t: abs(t["mile"] - mid))["name"]
+
+
 plt.figure(figsize=(10, 6))
 labels = [f"mi {r['start_mi']:.0f}–{r['end_mi']:.0f} ({r['ft_per_mi']} ft/mi)" for r in cb]
 plt.barh(labels[::-1], [r["gain_ft"] for r in cb][::-1],
          color=[SECC[SECTIONS.index(r["section"])] for r in cb][::-1], edgecolor="white")
+for i, r in enumerate(cb[::-1]):
+    plt.text(60, i, nearest_town((r["start_mi"] + r["end_mi"]) / 2),
+             va="center", fontsize=9, color="white", weight="bold")
 plt.xlabel("net elevation gain (ft)")
 plt.title("The 12 biggest sustained climbs (2,000 ft+, 600 ft dip tolerance)",
           fontsize=13, weight="bold")

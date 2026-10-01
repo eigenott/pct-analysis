@@ -27,7 +27,7 @@ RED = "#C0392B"
 
 plt.rcParams.update({
     "figure.dpi": 150, "savefig.dpi": 150,
-    "font.family": "DejaVu Sans", "axes.spines.top": False,
+    "font.family": "serif", "axes.spines.top": False,
     "axes.spines.right": False,
 })
 
@@ -232,15 +232,14 @@ step = 8
 fig, axes = plt.subplots(1, 5, figsize=(13, 6))
 for ax, s, (lo_b, hi_b) in zip(axes, SECTIONS, zip(BOUNDS, BOUNDS[1:])):
     m = (cmi >= lo_b) & (cmi < hi_b)
-    sc = ax.scatter(clo[m][::step], cla[m][::step], c=med[np.floor(cmi[m][::step]).astype(int)],
-                    cmap="RdYlGn", vmin=1.5, vmax=4.5, s=4)
+    ax.scatter(clo[m][::step], cla[m][::step], c=med[np.floor(cmi[m][::step]).astype(int)],
+               cmap="RdYlGn", vmin=1.5, vmax=4.5, s=4)
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_title(s, fontsize=11, weight="bold")
-fig.colorbar(sc, ax=list(axes), orientation="horizontal", fraction=0.05,
-             pad=0.08, label="median pace (mph) per trail mile")
-fig.suptitle("How fast is every mile of the PCT?", fontsize=14, weight="bold")
+fig.suptitle("How fast is every mile of the PCT? (green = fast, red = slow)",
+               fontsize=14, weight="bold")
 save("41_speed_map.png")
 
 print("done → graphics/", flush=True)

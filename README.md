@@ -29,12 +29,23 @@ uv run python scripts/compare_heuristics.py
 uv run python scripts/apply_cuts.py
 uv run python scripts/build_route.py         # needs GPX in rawdata/pcta_route/
 uv run python scripts/project_tracks.py
-uv run marimo edit notebooks/report.py     # the story (broad → weird)
+uv run python scripts/build_daily_report.py
+uv run python scripts/find_oddities.py
+uv run python scripts/build_segments.py
+uv run python scripts/find_climbs.py
+uv run python scripts/build_wellness.py      # needs the full export in rawdata/
+uv run python scripts/build_breaks_hourly.py
+uv run python scripts/make_graphics.py       # standalone PNGs → graphics/
+uv run python scripts/make_graphics2.py
+uv run python scripts/make_graphics3.py
+uv run python scripts/make_graphics4.py
+uv run marimo edit notebooks/report.py     # the story (overview → trail details)
 uv run marimo edit notebooks/pct.py        # working analysis notebook
 ```
 
-`rawdata/` (Garmin export, GPX) and `data/` (generated Parquet) are local-only
-and gitignored — scripts rebuild everything from raw.
+`rawdata/` (Garmin export, GPX), `data/` (generated Parquet),
+`annotations/` (private timeline) and `graphics/` (generated PNGs) are
+local-only and gitignored — scripts rebuild everything from raw.
 
 ## Research report
 
@@ -47,10 +58,13 @@ and gitignored — scripts rebuild everything from raw.
 ## Layout
 
 ```
-scripts/          pipeline (sort → parse → flag → compare → cut → route → project → oddities)
+scripts/          pipeline (sort → parse → flag → compare → cut → route → project → report tables → graphics)
 notebooks/pct.py  marimo working notebook
-notebooks/report.py  marimo report (broad → niche/weird)
+notebooks/report.py  marimo report (overview → trail details)
 docs/             methodology + decisions
+reference/        public reference data (resupply towns + trail miles)
 rawdata/          (untracked) Garmin export, PCTA GPX
 data/             (untracked) generated Parquet tables
+annotations/      (untracked, private) hiker timeline
+graphics/         (untracked) generated PNGs for posting
 ```

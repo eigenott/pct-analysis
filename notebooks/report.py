@@ -21,7 +21,8 @@ def _(mo):
 
     *A data scientist turned thru-hiker, learning polars + marimo on
     99 days of Garmin tracks (Apr 25 – Aug 11, 2026, Campo → Rainy Pass).
-    Broad stuff first, weird stuff at the bottom — the weird stuff is the point.*
+    Broad overview first, trail curiosities at the bottom — the curiosities
+    are the point.*
     """)
     return
 
@@ -502,7 +503,7 @@ def _(alt, mo, pl):
 @app.cell
 def _(markers, mo, odd, pl):
     mo.md("""
-    ## Weird I — backtracks (did I drop something?)
+    ## Trail oddities I — backtracks (did I drop something?)
 
     Sustained southbound wiggles >0.25 mi with time to be real footsteps
     (instant flips are hairpin projection artifacts — labeled, kept for fun).
@@ -524,7 +525,7 @@ def _(markers, mo, odd, pl):
 @app.cell
 def _(markers, mo, odd, pl):
     mo.md("""
-    ## Weird II — side quests & alternates (water? views? wrong turns?)
+    ## Trail oddities II — side quests & alternates (water? views? wrong turns?)
 
     Stretches >500 ft off the canonical line. Short + returned = side quest.
     Long = alternate (confirm!). *max_ft* is how far off-trail it got.
@@ -545,7 +546,7 @@ def _(markers, mo, odd, pl):
 @app.cell
 def _(daily, mo, pl):
     mo.md("""
-    ## Weird III — regime changes (caffeine? shoes? tramily? you tell me)
+    ## Trail oddities III — regime changes (caffeine? shoes? tramily? you tell me)
 
     Greedy binary segmentation on three daily series: it finds the split
     that most reduces variance, then splits again (×3 each). These are

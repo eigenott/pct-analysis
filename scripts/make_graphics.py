@@ -29,7 +29,7 @@ BOUNDS = [0, 702, 1092, 1694, 2146, 2660]
 
 plt.rcParams.update({
     "figure.dpi": 150, "savefig.dpi": 150,
-    "font.family": "DejaVu Sans", "axes.spines.top": False,
+    "font.family": "serif", "axes.spines.top": False,
     "axes.spines.right": False,
 })
 

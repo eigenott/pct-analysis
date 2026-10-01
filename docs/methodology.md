@@ -122,15 +122,27 @@ three skips above.
   (route vs GPS-sum per flagged day).
 - The `unknown/` bucket and pre/postpct files are unexamined beyond sorting.
 
-## 7. Annotations & per-segment table
+## 7. Annotations, sections & per-segment table
 
-- `annotations/events.csv` (versioned): hiker-confirmed timeline — Whitney
-  06-06, SHR split 06-14 / Truckee rejoin 06-22, 67-mi catch-up skip 06-23,
-  Sisters fire skip 07-24, Rainy Pass terminus 08-11. Tentative rows carry
-  `status=tentative`. Private context never enters this file or the report.
+- `annotations/events.csv` (**private, gitignored, never committed**):
+  hiker-confirmed timeline — Whitney 06-06, SHR split 06-14 / Truckee
+  rejoin 06-22, 67-mi catch-up skip 06-23, Sisters fire skip 07-24,
+  Rainy Pass terminus 08-11. Overlaid on the progress chart when present;
+  notebooks degrade gracefully without it. Private context never enters
+  this file or the report.
+- Trail sections by centerline mile: SoCal <702, Sierra <1092,
+  NorCal <1694, Oregon <2146, Washington to the end. Days are assigned by
+  midpoint mile; section colors are fixed everywhere (amber/sky/green/
+  deep-blue/vermillion, Okabe-Ito-inspired). A sub-20-mi day is a **nero**;
+  ≥20 mi is a **full day** (73 of 99).
 - `scripts/build_segments.py` → `data/segments.parquet`: one row per
   in-file fix pair (dist, dt, mph, dAlt, grade, H5 flag, local hour) —
   powers grade-vs-speed and time-of-day analyses in the report.
+- `scripts/find_climbs.py` → `data/climbs.parquet`: sustained 2,000 ft+
+  ascents on smoothed centerline elevation (600 ft dip tolerance), with
+  net + gross gain, length, ft/mi, section, traversed dates and pace.
+- `reference/towns.csv` (public, versioned): resupply towns with PCTA
+  trail miles, used for nearest-town labels and resupply-rhythm analysis.
 
 ## 8. Wellness, breaks, hourly miles
 
