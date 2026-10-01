@@ -8,3 +8,12 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Generated data (rebuild with scripts/build_tracks.py)
+data/
+
+# macOS
+.DS_Store
+
+# marimo session state
+__marimo__/

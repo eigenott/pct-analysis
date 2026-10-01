@@ -6,9 +6,12 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "altair>=6.3.0",
+    "garmin-fit-sdk>=21.217.0",
     "marimo>=0.25.0",
+    "pandas>=3.0.6",
     "plotly>=7.1.0",
     "polars>=1.44.2",
+    "pyarrow>=25.0.1",
 ]
 
 [project.scripts]
