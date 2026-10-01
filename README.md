@@ -11,8 +11,7 @@ This project was substantially produced with the help of AI coding tools.
 
 ## Who / what
 
-I'm a **data scientist turned thru-hiker** (ex-finance, pandas veteran)
-learning the modern stack on my own hike data. Built with Python (uv),
+I'm a **data scientist turned thru-hiker** (ex-quant) who is obsessed with graphs. Built with Python (uv),
 **polars**, **marimo**, altair, plotly, garmin-fit-sdk, scipy — pair-built
 with **Muse Spark** (via OpenCode) as coding partner and analyst. Start
 with the report notebook; cleaning details live in
