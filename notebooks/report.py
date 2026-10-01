@@ -230,6 +230,67 @@ def _(daily, mo):
 
 
 @app.cell
+def _(daily, mo, pl):
+    mo.md("""
+    ## Sections — five hikes in one (SoCal <702, Sierra <1092, NorCal <1694, Oregon <2146, Washington to end)
+
+    Days assigned by midpoint trail mile. Past the desert, <25 mi = nero.
+    """)
+    order = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
+    sec = (
+        daily.group_by("section")
+        .agg(pl.len().alias("days"),
+             pl.col("net_mi").sum().round(1).alias("miles"),
+             pl.col("pace_mph").mean().round(2).alias("avg_pace"),
+             pl.col("is_full").sum().alias("full_days"),
+             pl.col("is_nero").sum().alias("neros"))
+        .with_columns(pl.col("section").cast(pl.Enum(order)).alias("s"))
+        .sort("s").drop("s")
+    )
+    mo.ui.table(sec)
+    return
+
+
+@app.cell
+def _(daily, mo, pl):
+    mo.md("## Best & worst day in each section (trail miles)")
+    rows = []
+    for s in ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]:
+        sd = daily.filter(pl.col("section") == s)
+        if sd.height == 0:
+            continue
+        b = sd.sort("net_mi", descending=True).row(0, named=True)
+        w = sd.sort("net_mi").row(0, named=True)
+        rows.append({"section": s,
+                     "best": f"{b['date']} ({b['net_mi']:.1f} mi)",
+                     "worst": f"{w['date']} ({w['net_mi']:.1f} mi)"})
+    mo.ui.table(pl.DataFrame(rows))
+    return
+
+
+@app.cell
+def _(alt, daily, mo, pl):
+    mo.md("## Full days only (≥25 mi) — pace by section, zeros and neros excluded")
+    fd = daily.filter(pl.col("is_full")).with_columns(
+        pl.col("date").str.to_datetime().alias("day"))
+    sec_order = ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"]
+    pace_sec = (
+        fd.group_by("section")
+        .agg(pl.col("pace_mph").median().round(2).alias("med_pace"),
+             pl.len().alias("n"))
+        .with_columns(pl.col("section").cast(pl.Enum(sec_order)).alias("s"))
+        .sort("s").drop("s").to_pandas()
+    )
+    alt.Chart(pace_sec).mark_bar(color="#7A7AD6").encode(
+        x=alt.X("section:N", title=None, sort=sec_order),
+        y=alt.Y("med_pace:Q", title="median pace, full days (mph)",
+                scale=alt.Scale(zero=False)),
+        tooltip=["section", "med_pace", "n"],
+    ).properties(height=240)
+    return
+
+
+@app.cell
 def _(markers, mo, odd, pl):
     mo.md("""
     ## Weird I — backtracks (did I drop something?)

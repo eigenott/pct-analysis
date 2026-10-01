@@ -143,7 +143,25 @@ def _(alt, mo, pl):
         .mark_rect(opacity=0.18, color="#7A7AD6")
         .encode(x="start:T", x2="end:T", tooltip=["label", "status"])
     )
-    (prog + spans)
+    rpd = route.to_pandas()
+    x0, x1 = rpd["day"].min(), rpd["day"].max()
+    bands = pl.DataFrame({
+        "section": ["SoCal", "Sierra", "NorCal", "Oregon", "Washington"],
+        "y0": [0, 702, 1092, 1694, 2146],
+        "y1": [702, 1092, 1694, 2146, 2660],
+    }).with_columns(
+        ((pl.col("y0") + pl.col("y1")) / 2).alias("mid"),
+        pl.lit(x0).alias("x0"), pl.lit(x1).alias("x1"),
+    ).to_pandas()
+    sec_bg = (
+        alt.Chart(bands).mark_rect(opacity=0.06).encode(
+            x="x0:T", x2="x1:T", y="y0:Q", y2="y1:Q")
+    )
+    sec_text = (
+        alt.Chart(bands).mark_text(align="left", dx=6, opacity=0.55, fontSize=11).encode(
+            x="x0:T", y="mid:Q", text="section:N")
+    )
+    (sec_bg + sec_text + prog + spans)
     return (route,)
 
 

@@ -41,6 +41,23 @@ def main() -> None:
         .join(summ, on="date", how="left")
         .join(ends, on="date", how="left")
         .with_columns([
+            ((pl.col("route_min_mi") + pl.col("route_max_mi")) / 2).alias("_mid_mi"),
+        ])
+        .with_columns([
+            pl.when(pl.col("_mid_mi") < 702).then(pl.lit("SoCal"))
+            .when(pl.col("_mid_mi") < 1092).then(pl.lit("Sierra"))
+            .when(pl.col("_mid_mi") < 1694).then(pl.lit("NorCal"))
+            .when(pl.col("_mid_mi") < 2146).then(pl.lit("Oregon"))
+            .otherwise(pl.lit("Washington")).alias("section"),
+            # day assigned by midpoint; boundary-straddling days go to the
+            # section holding most of their miles (approximation, noted in docs)
+        ])
+        .with_columns([
+            (pl.col("net_mi") >= 25).alias("is_full"),
+            ((pl.col("section") != "SoCal") & (pl.col("net_mi") < 25)).alias("is_nero"),
+        ])
+        .drop("_mid_mi")
+        .with_columns([
             (pl.col("ascent_m") * 3.28084).round(0).cast(pl.Int64).alias("ascent_ft"),
             (pl.col("descent_m") * 3.28084).round(0).cast(pl.Int64).alias("descent_ft"),
             (pl.col("timer_s") / 3600).round(1).alias("moving_hrs"),
