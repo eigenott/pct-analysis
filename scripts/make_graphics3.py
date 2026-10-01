@@ -181,7 +181,7 @@ groups = [("normal day", [r for r in d if r["date"] not in after_zero | after_ne
           ("after nero", [r for r in d if r["date"] in after_nero])]
 ax1.bar([g[0] + f"\n(n={len(g[1])})" for g in groups],
         [np.mean([r["net_mi"] for r in g[1]]) for g in groups],
-        color=["#3D3D8F", "#999999", "#CCCCCC"], width=0.6)
+        color=["#E69F00", "#999999", "#CCCCCC"], width=0.6)
 ax1.set_ylabel("mean trail miles")
 ax1.set_title("Do rest days pay off?", fontsize=12, weight="bold")
 x = np.arange(5)
@@ -190,9 +190,9 @@ norm = [np.mean([r["net_mi"] for r in d if r["section"] == s
                  and r["date"] not in after_zero | after_nero]) for s in SECTIONS]
 rest = [np.mean([r["net_mi"] for r in d if r["section"] == s
                  and r["date"] in after_zero | after_nero]) for s in SECTIONS]
-ax2.bar(x - w / 2, norm, width=w, label="normal", color="#3D3D8F")
+ax2.bar(x - w / 2, norm, width=w, label="normal", color=SECC)
 ax2.bar(x + w / 2, [0 if np.isnan(v) else v for v in rest], width=w,
-        label="after zero/nero", color=SECC)
+        label="after zero/nero", color="#999999")
 ax2.set_xticks(x, SECTIONS)
 ax2.set_title("...and does it depend on section?", fontsize=12, weight="bold")
 ax2.legend(frameon=False)
