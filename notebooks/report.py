@@ -42,13 +42,13 @@ def _(mo, pl):
 
 
 @app.cell
-def _(alt, daily, mo):
+def _(alt, daily, mo, pl):
     mo.md("## The hike in one chart — daily miles, corrected")
     bars = (
-        alt.Chart(daily.to_pandas())
+        alt.Chart(daily.with_columns(pl.col("date").str.to_datetime().alias("day")).to_pandas())
         .mark_bar(color="#BBBBF2")
         .encode(
-            x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
+            x=alt.X("day:T", title="date"),
             y=alt.Y("net_mi:Q", title="trail miles"),
             tooltip=["date", "net_mi", "ascent_ft", "pace_mph", "start_local", "end_local"],
         )
@@ -59,9 +59,10 @@ def _(alt, daily, mo):
 
 
 @app.cell
-def _(alt, daily, mo):
+def _(alt, daily, mo, pl):
     mo.md("## Rhythm — when did the day start and end? (Pacific)")
     clock = daily.with_columns([
+        pl.col("date").str.to_datetime().alias("day"),
         (pl.col("start_local").str.slice(0, 2).cast(pl.Int64) * 60
          + pl.col("start_local").str.slice(3, 2).cast(pl.Int64)).alias("start_min"),
         (pl.col("end_local").str.slice(0, 2).cast(pl.Int64) * 60
@@ -71,7 +72,7 @@ def _(alt, daily, mo):
         alt.Chart(clock.to_pandas())
         .mark_circle(size=40, color="#7A7AD6")
         .encode(
-            x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
+            x=alt.X("day:T", title="date"),
             y=alt.Y("start_min:Q", title="time of day",
                     axis=alt.Axis(format="d"), scale=alt.Scale(domain=[240, 1320])),
             tooltip=["date", "start_local", "end_local", "net_mi"],
@@ -96,13 +97,14 @@ def _(clock, mo):
 
 
 @app.cell
-def _(alt, daily, mo):
+def _(alt, daily, mo, pl):
     mo.md("## Trail legs — did I get faster? (pace + 7-day trend)")
     legs = daily.with_columns(
-        pl.col("pace_mph").rolling_mean(7, center=True).alias("pace_7d")
+        pl.col("pace_mph").rolling_mean(7, center=True).alias("pace_7d"),
+        pl.col("date").str.to_datetime().alias("day"),
     ).to_pandas()
     legs_base = alt.Chart(legs).encode(
-        x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60))
+        x=alt.X("day:T", title="date")
     )
     (legs_base.mark_circle(size=30, color="#BBBBF2").encode(
         y=alt.Y("pace_mph:Q", title="mph", scale=alt.Scale(zero=False)),
@@ -112,13 +114,14 @@ def _(alt, daily, mo):
 
 
 @app.cell
-def _(alt, daily, mo):
+def _(alt, daily, mo, pl):
     mo.md("## Engine room — average heart rate trend (fitness = same pace, lower pulse?)")
     hr = daily.with_columns(
-        pl.col("avg_hr").rolling_mean(7, center=True).alias("hr_7d")
+        pl.col("avg_hr").rolling_mean(7, center=True).alias("hr_7d"),
+        pl.col("date").str.to_datetime().alias("day"),
     ).to_pandas()
     hr_base = alt.Chart(hr).encode(
-        x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60))
+        x=alt.X("day:T", title="date")
     )
     (hr_base.mark_circle(size=30, color="#BBBBF2").encode(
         y=alt.Y("avg_hr:Q", title="avg bpm", scale=alt.Scale(zero=False)),
@@ -128,11 +131,13 @@ def _(alt, daily, mo):
 
 
 @app.cell
-def _(alt, daily, mo):
+def _(alt, daily, mo, pl):
     mo.md("## Where I slept — camp elevation each night")
-    camps = daily.select(["date", "camp_end_ft"]).to_pandas()
+    camps = daily.select(["date", "camp_end_ft"]).with_columns(
+        pl.col("date").str.to_datetime().alias("day")
+    ).to_pandas()
     alt.Chart(camps).mark_area(color="#BBBBF2", line={"color": "#7A7AD6"}).encode(
-        x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
+        x=alt.X("day:T", title="date"),
         y=alt.Y("camp_end_ft:Q", title="camp elevation (ft)"),
         tooltip=["date", "camp_end_ft"],
     ).properties(height=240)

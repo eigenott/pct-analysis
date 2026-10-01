@@ -38,13 +38,13 @@ def _(mo, pl):
 
 
 @app.cell
-def _(alt, daily, mo):
+def _(alt, daily, mo, pl):
     mo.md("## Daily mileage (raw, UltraTrac jumps included)")
     mileage = (
-        alt.Chart(daily.to_pandas())
+        alt.Chart(daily.with_columns(pl.col("date").str.to_datetime().alias("day")).to_pandas())
         .mark_bar(color="#BBBBF2")
         .encode(
-            x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
+            x=alt.X("day:T", title="date"),
             y=alt.Y("miles:Q", title="miles"),
             tooltip=["date", "miles", "ascent_ft", "avg_hr"],
         )
@@ -88,12 +88,14 @@ def _(alt, date_picker, pl):
 @app.cell
 def _(alt, mo, pl):
     mo.md("## Corrected mileage — teleports cut (red), kept miles (blue)")
-    corr = pl.read_parquet("data/daily_corrected.parquet")
-    stacked = corr.select(["date", "corrected_mi", "cut_mi"]).unpivot(
-        index="date", value_name="miles", variable_name="component"
+    corr = pl.read_parquet("data/daily_corrected.parquet").with_columns(
+        pl.col("date").str.to_datetime().alias("day")
+    )
+    stacked = corr.select(["date", "day", "corrected_mi", "cut_mi"]).unpivot(
+        index=["date", "day"], value_name="miles", variable_name="component"
     )
     alt.Chart(stacked.to_pandas()).mark_bar().encode(
-        x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
+        x=alt.X("day:T", title="date"),
         y=alt.Y("miles:Q", title="miles"),
         color=alt.Color(
             "component:N",
@@ -104,18 +106,20 @@ def _(alt, mo, pl):
         ),
         tooltip=["date", "component", "miles"],
     ).properties(height=300)
-    return (corr,)
+    return
 
 
 @app.cell
 def _(alt, mo, pl):
     mo.md("## Along-trail progress — northernmost trail mile by date (flats = zeros, gaps = skips)")
-    route = pl.read_parquet("data/daily_route.parquet")
+    route = pl.read_parquet("data/daily_route.parquet").with_columns(
+        pl.col("date").str.to_datetime().alias("day")
+    )
     prog = (
         alt.Chart(route.to_pandas())
         .mark_line(point=True, color="#7A7AD6")
         .encode(
-            x=alt.X("date:O", title="date", axis=alt.Axis(labelAngle=-60)),
+            x=alt.X("day:T", title="date"),
             y=alt.Y("route_max_mi:Q", title="trail mile"),
             tooltip=["date", "route_min_mi", "route_max_mi", "net_mi", "offroute_frac"],
         )
@@ -127,11 +131,11 @@ def _(alt, mo, pl):
 
 @app.cell
 def _(mo, pl, route):
-    mo.md(
-        f"**Along-trail net total: {route['net_mi'].sum():.1f} mi** "
+    mo.md(f"""
+    **Along-trail net total: {route['net_mi'].sum():.1f} mi** "
         f"(anchor ~2450). Days more than half off-route (alternate candidates): "
-        f"{', '.join(route.filter(pl.col('offroute_frac') > 0.5)['date'].to_list())}."
-    )
+        f"{', '.join(route.filter(pl.col('offroute_frac') > 0.5)['date'].to_list())}.
+    """)
     return
 
 
